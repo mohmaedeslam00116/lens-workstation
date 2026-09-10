@@ -3,7 +3,25 @@
 ## Core Domain Concepts
 
 ### LENS Workstation
-The autonomous developer research and coding agent harness. An Electron desktop application integrating Monaco Code Editor, multi-file diff reviewer, sandboxed terminal, deep web research retrieval, and an autonomous coding agent loop.
+The autonomous developer research and coding agent harness. An Electron desktop application inspired by Google Antigravity 2.0 and OpenAI Codex, combining an autonomous agent canvas, Monaco multi-file diff reviewer, sandboxed terminal, deep web research retrieval, and an autonomous coding agent loop.
+
+### AgentCanvas
+The primary central interactive surface in LENS Workstation where developer prompts, agent thinking (`thought` streams), action plans, subagent reports, and inline tool execution cards are rendered in real time.
+
+### AuxiliaryWorkstationPane
+The secondary collapsible/expandable multi-tab surface operating beside the Agent Canvas:
+- **`Changes / Diffs`**: Multi-file Monaco Diff Editor for inspecting and tweaking proposed change sets before approval.
+- **`Terminal`**: Live process execution stream with sanitized environment controls and process-tree lifecycle monitoring.
+- **`Evidence & Docs`**: Live research claims and documentation citations, visually labeled as `[contentIsUntrusted: true]`.
+- **`Artifacts`**: Interactive markdown documents, execution plans, and architecture diagrams.
+
+### TurnLifecycle
+The deterministic execution loop of an agent turn:
+1. **User Prompt & Mentions**: Input with `@` context attachments and `/` slash commands.
+2. **Streaming Thought & Plan**: Model emits real-time chain-of-thought and structured plan.
+3. **Autonomous Tool Calls**: Model calls typed tools with live card updates.
+4. **Human-In-The-Loop Checkpoint**: If a tool mutates files or runs shell commands, execution halts for developer approval or guidance.
+5. **Reactive Wakeup**: Asynchronous tasks, subagents, or user approvals trigger immediate turn resumption without polling.
 
 ### Privileged Policy Layer
 The authoritative security evaluation engine that governs all tool execution, filesystem mutations, and terminal invocations. External research data is classified as untrusted (`contentIsUntrusted: true`). Untrusted content cannot grant, elevate, or synthesize execution capabilities.
