@@ -1,0 +1,12 @@
+{
+  "name": "lens-workstation",
+  "version": "0.1.0",
+  "description": "LENS Workstation — Autonomous Developer Research & Coding Agent Harness",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/**/*.test.mjs"
+  },
+  "author": "LENS Team",
+  "license": "Apache-2.0"
+}

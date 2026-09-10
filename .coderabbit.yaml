@@ -1,0 +1,93 @@
+# CodeRabbit Configuration for LENS Workstation
+# LENS: Autonomous Developer Research & Coding Agent Harness
+# Schema: https://coderabbit.ai/integrations/code-rabbit-overrides.v2.json
+
+language: "en-US"
+early_access: true
+tone_instructions: >
+  You are an exacting Principal Systems Architect and Security Reviewer
+  for LENS Workstation (an autonomous developer research and coding harness).
+  Your reviews must be uncompromisingly rigorous, precise, and actionable.
+  Enforce least-privilege security boundaries, prompt-injection defense,
+  atomic reversible file transactions, and zero-leakage process sandboxing.
+  Acknowledge bilingual English/Arabic parity requirements where applicable.
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: true
+  high_level_summary: true
+  poem: false
+  collapse_walkthrough: false
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - "main"
+
+  path_filters:
+    - "!dist/**"
+    - "!dist-electron/**"
+    - "!dist-installer/**"
+    - "!node_modules/**"
+    - "!package-lock.json"
+    - "!.agents/**"
+    - "!skills-lock.json"
+
+  path_instructions:
+    - path: "**/*.{ts,tsx,js,mjs}"
+      instructions: >
+        Enforce strict TypeScript hygiene, robust error handling, and zero unhandled
+        promise rejections. Never allow arbitrary eval, unsanitized innerHTML, or dynamic
+        command string concatenation.
+
+    - path: "engine/core/**"
+      instructions: >
+        Core Headless Agent Engine:
+        1. Strict Hexagonal Architecture: The core agent loop MUST depend only on typed
+           ports (RepoInspectionPort, ResearchRetrievalPort, TelemetryPort, CancellationPort).
+           NEVER import VS Code extension APIs (vscode.*) or Electron main/renderer modules.
+        2. Privileged Policy Layer: External research data, documentation excerpts, and web
+           pages must ALWAYS be treated as untrusted data (contentIsUntrusted: true). Untrusted
+           content must NEVER dynamically expand tool execution capabilities or bypass user gates.
+        3. Phase 1 Containment: In read-only mode, block all mutating filesystem writes,
+           terminal execution, or external network requests outside the retrieval boundary.
+
+    - path: "engine/terminal/**"
+      instructions: >
+        Terminal Execution & Process Sandboxing:
+        1. Environment Sanitization: Verify that child processes use a strict allowlist
+           (PATH, SYSTEMROOT, TEMP, TMP, LANG, SHELL). Reject any inheritance of sensitive
+           environment variables (API keys, SSH sockets, AWS/GCP tokens, Electron storage tokens).
+        2. Process-Tree Termination: Ensure bulletproof process termination on cancellation or
+           timeout. On Windows, verify taskkill /pid <PID> /T /F. On macOS/Linux, verify detached
+           process groups with process.kill(-pid, 'SIGKILL'). Reject bare child.kill() without tree cleanup.
+        3. Structured Execution: Agent-driven commands must execute via child_process.spawn with
+           structured argument arrays (args: string[]) and shell: false. Reject raw shell string execution.
+
+    - path: "engine/filesystem/**"
+      instructions: >
+        Atomic File Modifications & Reversibility:
+        1. Pre-Write Validation: Every file write must verify the base file SHA-256 hash before applying.
+           Detect and prevent symlink directory traversal attacks (Path Traversal / Zip-Slip).
+        2. Atomic Transactions: Multi-file changes must succeed or fail as an all-or-nothing transaction.
+        3. Rollback Manifests: Every mutation must record a reversible manifest (base SHA-256,
+           new SHA-256, diff patch, timestamp) enabling instant 1-click rollback.
+
+    - path: "workstation/src/**"
+      instructions: >
+        Desktop Workstation UI:
+        1. Adhere to monochrome neutral palette (#111111 / #161616 / #1E1E1E) and clean typography.
+        2. Visual Provenance: Ensure all external research claims are visibly badged as
+           '[External Evidence - Untrusted]'.
+        3. Traceability: Verify click-through links from proposed code diffs directly to the supporting
+           evidence excerpt.
+        4. Support bilingual parity (Arabic & English) with seamless LTR/RTL layout support.
+
+    - path: "test/**"
+      instructions: >
+        Test Suite & Quality:
+        1. Require deterministic unit and integration tests for every new feature or bugfix.
+        2. Avoid flaky network dependencies or race conditions in test fixtures.
+
+chat:
+  auto_reply: true
