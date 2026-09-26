@@ -4,15 +4,17 @@
   "description": "LENS Workstation — Autonomous Developer Research & Coding Agent Harness",
   "private": true,
   "type": "module",
-  "main": "dist/electron/main.js",
+  "main": "dist/electron/main.cjs",
   "scripts": {
     "test": "node --test test/**/*.test.mjs",
     "typecheck": "tsc --noEmit",
     "build:engine": "tsc -p tsconfig.node.json",
     "build:ui": "vite build",
-    "build": "npm run build:engine && npm run build:ui",
+    "build:electron": "esbuild workstation/electron/main.ts workstation/electron/preload.ts --bundle --platform=node --outdir=dist/electron --out-extension:.js=.cjs --external:electron",
+    "build": "npm run build:engine && npm run build:ui && npm run build:electron",
     "dev:ui": "vite",
-    "dev": "vite"
+    "dev": "vite",
+    "start": "electron ."
   },
   "dependencies": {
     "@monaco-editor/react": "^4.6.0",
@@ -30,6 +32,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.18",
     "electron": "^32.3.3",
+    "esbuild": "^0.25.12",
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.3.3",
