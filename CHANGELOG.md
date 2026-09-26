@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Implemented Multi-Provider LLM Streaming Gateway (`engine/providers/index.mjs`) normalizing streaming tokens, reasoning thoughts, and structured tool calls across Google Gemini, Anthropic Claude, OpenAI, DeepSeek, and Ollama.
 - Implemented Electron desktop shell (`workstation/electron/main.ts`) supervising local `EngineServer` lifecycle, native `BrowserWindow` windowing, and secure context-isolated preload bridge (`workstation/electron/preload.ts`) exposing `electronDialogs`, `electronStorage`, `electronNotifications`, and `electronShell` APIs.
 - Implemented Sanitized Terminal execution engine (`engine/terminal/runner.mjs`) with strict environment variable allowlist stripping credentials and secrets, total output byte truncation safeguards, and cross-platform process-tree termination (`engine/terminal/tree-killer.mjs`).
+- Implemented Atomic Filesystem & Rollback Engine (`engine/filesystem/engine.mjs`) featuring pre-write SHA-256 integrity validation, all-or-nothing multi-file atomic transactions, persistent `.lens/transactions/tx-<id>.json` rollback manifests, and 1-click byte-for-byte state reversion.
 
 
 
