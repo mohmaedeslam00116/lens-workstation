@@ -43,6 +43,11 @@ async function startEngine(): Promise<void> {
 }
 
 function createWindow(): void {
+  const loadUrl = IS_DEV && process.env.VITE_DEV_SERVER_URL
+    ? process.env.VITE_DEV_SERVER_URL
+    : `http://127.0.0.1:${ENGINE_PORT}`;
+  const allowedOrigin = new URL(loadUrl).origin;
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -51,15 +56,18 @@ function createWindow(): void {
     backgroundColor: '#111111',
     title: 'LENS Workstation',
     webPreferences: {
-      preload: resolve(__dirname, 'preload.js'),
+      preload: resolve(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
 
-  const loadUrl = IS_DEV && process.env.VITE_DEV_SERVER_URL
-    ? process.env.VITE_DEV_SERVER_URL
-    : `http://127.0.0.1:${ENGINE_PORT}`;
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (new URL(url).origin !== allowedOrigin) {
+      event.preventDefault();
+    }
+  });
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
   mainWindow.loadURL(loadUrl);
 
@@ -68,21 +76,31 @@ function createWindow(): void {
   });
 }
 
+const FORBIDDEN_KEYS = new Set(['__proto__']);
+function assertStorageKey(key: unknown): asserts key is string {
+  if (typeof key !== 'string' || FORBIDDEN_KEYS.has(key)) {
+    throw new Error('Invalid storage key');
+  }
+}
+
 function setupIpcHandlers(): void {
   // Storage handlers
-  ipcMain.handle('storage:get', (_event, key: string) => {
+  ipcMain.handle('storage:get', (_event, key: unknown) => {
+    assertStorageKey(key);
     const store = readStore();
-    return store[key];
+    return Object.hasOwn(store, key) ? store[key] : undefined;
   });
 
-  ipcMain.handle('storage:set', (_event, key: string, value: unknown) => {
+  ipcMain.handle('storage:set', (_event, key: unknown, value: unknown) => {
+    assertStorageKey(key);
     const store = readStore();
     store[key] = value;
     writeStore(store);
     return true;
   });
 
-  ipcMain.handle('storage:delete', (_event, key: string) => {
+  ipcMain.handle('storage:delete', (_event, key: unknown) => {
+    assertStorageKey(key);
     const store = readStore();
     delete store[key];
     writeStore(store);
@@ -107,8 +125,16 @@ function setupIpcHandlers(): void {
   });
 
   // Shell handlers
-  ipcMain.handle('shell:openExternal', async (_event, url: string) => {
-    await shell.openExternal(url);
+  ipcMain.handle('shell:openExternal', async (_event, url: unknown) => {
+    if (typeof url !== 'string') return false;
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return false;
+    }
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
+    await shell.openExternal(parsed.toString());
     return true;
   });
 
@@ -124,7 +150,13 @@ function setupIpcHandlers(): void {
 
 app.whenReady().then(async () => {
   setupIpcHandlers();
-  await startEngine();
+  try {
+    await startEngine();
+  } catch (err) {
+    dialog.showErrorBox('LENS Workstation', `Engine failed to start: ${String(err)}`);
+    app.quit();
+    return;
+  }
   createWindow();
 
   app.on('activate', () => {
@@ -134,17 +166,22 @@ app.whenReady().then(async () => {
   });
 });
 
-app.on('window-all-closed', async () => {
-  if (engineServer) {
-    await engineServer.stop();
-  }
+app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
-app.on('before-quit', async () => {
-  if (engineServer) {
-    await engineServer.stop();
-  }
+app.on('before-quit', (event) => {
+  if (!engineServer) return;
+
+  event.preventDefault();
+  const server = engineServer;
+  engineServer = null;
+
+  server.stop()
+    .catch((error) => {
+      console.error('Failed to stop engine:', error);
+    })
+    .finally(() => app.quit());
 });

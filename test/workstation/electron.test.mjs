@@ -1,7 +1,9 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { resolve, join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { execSync } from 'node:child_process';
 
 describe('Electron Shell & Native Preload Bridge (Ticket #9)', () => {
   it('verifies electron source files exist with required symbols', () => {
@@ -30,16 +32,26 @@ describe('Electron Shell & Native Preload Bridge (Ticket #9)', () => {
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
 
     assert.ok(pkg.scripts['build:electron'], 'package.json must have build:electron script');
-    assert.equal(pkg.main, 'dist/electron/main.js', 'package.json main must point to dist/electron/main.js');
+    assert.equal(pkg.main, 'dist/electron/main.cjs', 'package.json main must point to dist/electron/main.cjs');
   });
 
-  it('verifies compiled electron bundles exist and are non-empty after build', () => {
-    const mainDist = resolve(process.cwd(), 'dist/electron/main.js');
-    const preloadDist = resolve(process.cwd(), 'dist/electron/preload.js');
+  it('verifies compiling electron bundles into a fresh directory produces valid cjs artifacts', () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'lens-electron-build-'));
+    try {
+      execSync(
+        `npx esbuild workstation/electron/main.ts workstation/electron/preload.ts --bundle --platform=node --outdir="${tempDir}" --out-extension:.js=.cjs --external:electron`,
+        { stdio: 'pipe' }
+      );
 
-    assert.ok(existsSync(mainDist), 'dist/electron/main.js must exist');
-    assert.ok(existsSync(preloadDist), 'dist/electron/preload.js must exist');
-    assert.ok(readFileSync(mainDist, 'utf8').length > 100);
-    assert.ok(readFileSync(preloadDist, 'utf8').length > 100);
+      const mainDist = join(tempDir, 'main.cjs');
+      const preloadDist = join(tempDir, 'preload.cjs');
+
+      assert.ok(existsSync(mainDist), 'main.cjs must exist in build output');
+      assert.ok(existsSync(preloadDist), 'preload.cjs must exist in build output');
+      assert.ok(readFileSync(mainDist, 'utf8').length > 100);
+      assert.ok(readFileSync(preloadDist, 'utf8').length > 100);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 });
