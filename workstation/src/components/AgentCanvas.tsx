@@ -174,7 +174,7 @@ const ToolExecutionCard: React.FC<{
     <div
       className={`rounded-lg border text-xs overflow-hidden transition-colors ${
         isWaiting
-          ? 'border-amber-700/80 bg-amber-950/20'
+          ? 'border-gray-500 bg-[#181818]'
           : 'border-[#262626] bg-[#141414]'
       }`}
     >
@@ -182,20 +182,14 @@ const ToolExecutionCard: React.FC<{
       <div className="flex items-center justify-between px-3 py-2.5">
         <div className="flex items-center gap-2">
           {isMutating ? (
-            <FileCode size={14} className="text-amber-400" />
+            <FileCode size={14} className="text-gray-200" />
           ) : (
-            <Terminal size={14} className="text-blue-400" />
+            <Terminal size={14} className="text-gray-400" />
           )}
           <span className="font-mono font-semibold text-gray-200">
             {tool.name}
           </span>
-          <span
-            className={`rounded px-1.5 py-0.2 font-mono text-[10px] ${
-              isMutating
-                ? 'bg-amber-950/60 text-amber-300 border border-amber-800/60'
-                : 'bg-blue-950/60 text-blue-300 border border-blue-800/60'
-            }`}
-          >
+          <span className="rounded px-1.5 py-0.5 font-mono text-[10px] bg-[#222222] text-gray-300 border border-[#333333]">
             {tool.type.toUpperCase()}
           </span>
         </div>
@@ -204,16 +198,16 @@ const ToolExecutionCard: React.FC<{
           {/* Status Badge */}
           <span className="flex items-center gap-1 font-mono text-[11px] text-gray-400">
             {tool.status === 'completed' && (
-              <CheckCircle size={13} className="text-emerald-400" />
+              <CheckCircle size={13} className="text-gray-200" />
             )}
             {tool.status === 'failed' && (
-              <AlertCircle size={13} className="text-red-400" />
+              <AlertCircle size={13} className="text-gray-400" />
             )}
             {tool.status === 'running' && (
-              <Clock size={13} className="text-blue-400 animate-spin" />
+              <Clock size={13} className="text-gray-300 animate-spin" />
             )}
             {tool.status === 'waiting_approval' && (
-              <span className="text-amber-400 font-bold animate-pulse">
+              <span className="text-gray-100 font-bold border border-gray-500 px-1 py-0.5 rounded text-[10px]">
                 {isRtl ? 'بانتظار الموافقة' : 'APPROVAL REQUIRED'}
               </span>
             )}
@@ -231,8 +225,8 @@ const ToolExecutionCard: React.FC<{
 
       {/* Human-in-the-loop Approval Banner for Mutating Operations */}
       {isWaiting && (
-        <div className="flex items-center justify-between border-t border-amber-800/50 bg-amber-950/40 px-3 py-2">
-          <span className="text-amber-200 text-xs font-medium">
+        <div className="flex items-center justify-between border-t border-[#333333] bg-[#1a1a1a] px-3 py-2">
+          <span className="text-gray-200 text-xs font-medium">
             {isRtl
               ? 'يتطلب هذا الإجراء تعديلاً على ملفات المشروع أو تنفيذ أمر نظام.'
               : 'This action mutates workspace files or executes commands.'}
@@ -240,16 +234,16 @@ const ToolExecutionCard: React.FC<{
           <div className="flex items-center gap-2">
             <button
               onClick={onReject}
-              className="flex items-center gap-1 rounded bg-[#201515] border border-red-800/60 text-red-300 px-2.5 py-1 text-xs hover:bg-red-950/70 transition-colors"
+              className="flex items-center gap-1 rounded bg-[#161616] border border-[#333333] text-gray-300 px-2.5 py-1 text-xs hover:bg-[#252525] hover:text-white transition-colors"
             >
               <X size={12} />
               <span>{isRtl ? 'رفض' : 'Reject'}</span>
             </button>
             <button
               onClick={onApprove}
-              className="flex items-center gap-1 rounded bg-emerald-950 border border-emerald-600 text-emerald-200 px-3 py-1 text-xs hover:bg-emerald-900 transition-colors font-medium"
+              className="flex items-center gap-1 rounded bg-white border border-gray-400 text-black px-3 py-1 text-xs hover:bg-gray-200 transition-colors font-medium"
             >
-              <Check size={12} />
+              <Check size={12} strokeWidth={2.5} />
               <span>{isRtl ? 'موافقة وتنفيذ' : 'Approve & Execute'}</span>
             </button>
           </div>

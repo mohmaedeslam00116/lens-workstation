@@ -41,7 +41,20 @@ export const AuxiliaryPane: React.FC<AuxiliaryPaneProps> = ({
 }) => {
   const isRtl = language === 'ar';
   const [selectedDiffIndex, setSelectedDiffIndex] = useState(0);
-  const activeDiff = diffFiles[selectedDiffIndex] || null;
+
+  // Clamp index within valid diffFiles bounds
+  const clampedDiffIndex = diffFiles.length > 0 ? Math.min(selectedDiffIndex, diffFiles.length - 1) : 0;
+  const activeDiff = diffFiles.length > 0 ? diffFiles[clampedDiffIndex] : null;
+
+  const isHttpUrl = (url?: string) => {
+    if (!url) return false;
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -59,8 +72,10 @@ export const AuxiliaryPane: React.FC<AuxiliaryPaneProps> = ({
                 : 'text-gray-400 hover:text-gray-200'
             }`}
           >
-            <FileDiff size={13} className="text-amber-400" />
-            <span>Diff {diffFiles.length > 0 && `(${diffFiles.length})`}</span>
+            <FileDiff size={13} className="text-gray-300" />
+            <span>
+              {isRtl ? 'الفروقات' : 'Diff'} {diffFiles.length > 0 && `(${diffFiles.length})`}
+            </span>
           </button>
 
           <button
@@ -71,8 +86,8 @@ export const AuxiliaryPane: React.FC<AuxiliaryPaneProps> = ({
                 : 'text-gray-400 hover:text-gray-200'
             }`}
           >
-            <TerminalIcon size={13} className="text-emerald-400" />
-            <span>Terminal</span>
+            <TerminalIcon size={13} className="text-gray-300" />
+            <span>{isRtl ? 'الطرفية' : 'Terminal'}</span>
           </button>
 
           <button
@@ -83,8 +98,8 @@ export const AuxiliaryPane: React.FC<AuxiliaryPaneProps> = ({
                 : 'text-gray-400 hover:text-gray-200'
             }`}
           >
-            <Search size={13} className="text-blue-400" />
-            <span>Evidence</span>
+            <Search size={13} className="text-gray-300" />
+            <span>{isRtl ? 'الأدلة' : 'Evidence'}</span>
           </button>
         </div>
 
@@ -92,7 +107,7 @@ export const AuxiliaryPane: React.FC<AuxiliaryPaneProps> = ({
         <button
           onClick={onClose}
           className="h-6 w-6 rounded flex items-center justify-center text-gray-400 hover:bg-[#252525] hover:text-white transition-colors"
-          title="Close auxiliary pane"
+          title={isRtl ? 'إغلاق اللوحة الجانبية' : 'Close auxiliary pane'}
         >
           <X size={14} />
         </button>
@@ -120,8 +135,8 @@ export const AuxiliaryPane: React.FC<AuxiliaryPaneProps> = ({
                         key={f.path}
                         onClick={() => setSelectedDiffIndex(idx)}
                         className={`rounded px-2 py-0.5 font-mono text-[11px] truncate max-w-[140px] ${
-                          idx === selectedDiffIndex
-                            ? 'bg-[#252525] text-amber-300 border border-amber-800/60'
+                          idx === clampedDiffIndex
+                            ? 'bg-[#252525] text-gray-100 border border-gray-500'
                             : 'text-gray-400 hover:text-gray-200'
                         }`}
                       >
@@ -134,19 +149,19 @@ export const AuxiliaryPane: React.FC<AuxiliaryPaneProps> = ({
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => onRejectDiff?.(activeDiff)}
-                        className="flex items-center gap-1 rounded border border-red-800/60 bg-red-950/30 px-2 py-0.5 text-[11px] text-red-300 hover:bg-red-900/40"
-                        title="Reject diff"
+                        className="flex items-center gap-1 rounded border border-[#444444] bg-[#1e1e1e] px-2 py-0.5 text-[11px] text-gray-300 hover:bg-[#2a2a2a] hover:text-white transition-colors"
+                        title={isRtl ? 'تراجع عن التغييرات المقترحة' : 'Reject and revert proposed diff'}
                       >
                         <RotateCcw size={11} />
-                        <span>Revert</span>
+                        <span>{isRtl ? 'تراجع' : 'Revert'}</span>
                       </button>
                       <button
                         onClick={() => onAcceptDiff?.(activeDiff)}
-                        className="flex items-center gap-1 rounded border border-emerald-800/60 bg-emerald-950/40 px-2 py-0.5 text-[11px] text-emerald-300 hover:bg-emerald-900/50"
-                        title="Accept diff"
+                        className="flex items-center gap-1 rounded border border-gray-400 bg-white px-2 py-0.5 text-[11px] text-black hover:bg-gray-200 transition-colors font-medium"
+                        title={isRtl ? 'قبول التغييرات وتطبيقها' : 'Accept and apply proposed diff'}
                       >
-                        <Check size={11} />
-                        <span>Accept</span>
+                        <Check size={11} strokeWidth={2.5} />
+                        <span>{isRtl ? 'قبول' : 'Accept'}</span>
                       </button>
                     </div>
                   )}
@@ -181,22 +196,24 @@ export const AuxiliaryPane: React.FC<AuxiliaryPaneProps> = ({
         {activeTab === 'terminal' && (
           <div className="flex flex-col h-full bg-[#0d0d0d] font-mono text-xs">
             <div className="flex items-center justify-between border-b border-[#222222] bg-[#161616] px-3 py-1 text-[11px] text-gray-400">
-              <span>Sanitized Process Runner Output</span>
+              <span>{isRtl ? 'مخرجات الطرفية المعقمة' : 'Sanitized Process Runner Output'}</span>
               {onClearTerminal && (
                 <button
                   onClick={onClearTerminal}
                   className="flex items-center gap-1 hover:text-gray-200"
-                  title="Clear terminal log"
+                  title={isRtl ? 'مسح سجل الطرفية' : 'Clear terminal log'}
                 >
                   <Trash2 size={11} />
-                  <span>Clear</span>
+                  <span>{isRtl ? 'مسح' : 'Clear'}</span>
                 </button>
               )}
             </div>
 
             <div className="flex-1 p-3 overflow-y-auto space-y-1">
               {terminalLogs.length === 0 ? (
-                <div className="text-gray-600 italic">No terminal command output yet.</div>
+                <div className="text-gray-600 italic">
+                  {isRtl ? 'لا توجد مخرجات أوامر بعد.' : 'No terminal command output yet.'}
+                </div>
               ) : (
                 terminalLogs.map((log) => (
                   <div
@@ -205,7 +222,7 @@ export const AuxiliaryPane: React.FC<AuxiliaryPaneProps> = ({
                       log.type === 'stderr'
                         ? 'text-red-400'
                         : log.type === 'system'
-                        ? 'text-blue-400'
+                        ? 'text-gray-400 italic'
                         : 'text-gray-300'
                     }`}
                   >
@@ -235,16 +252,22 @@ export const AuxiliaryPane: React.FC<AuxiliaryPaneProps> = ({
                 >
                   <div className="flex items-center justify-between font-medium text-gray-200">
                     <span className="truncate">{item.title}</span>
-                    {item.url && (
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-blue-400 hover:text-blue-300"
-                      >
-                        <ExternalLink size={12} />
-                      </a>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="rounded bg-[#222222] border border-[#333333] px-1.5 py-0.5 text-[9px] font-mono text-gray-400">
+                        {isRtl ? 'مصدر خارجي' : 'External Evidence'}
+                      </span>
+                      {isHttpUrl(item.url) && (
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-gray-400 hover:text-white"
+                          title="Open external evidence link"
+                        >
+                          <ExternalLink size={12} />
+                        </a>
+                      )}
+                    </div>
                   </div>
                   <div className="text-[10px] text-gray-500 font-mono">{item.source}</div>
                   <p className="text-gray-400 text-[11px] leading-relaxed line-clamp-4">

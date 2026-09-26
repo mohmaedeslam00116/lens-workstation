@@ -10,6 +10,11 @@ export function useEngineClient(options: UseEngineClientOptions = {}) {
   const [activeWorkspace, setActiveWorkspace] = useState<string>('');
   const [capability, setCapability] = useState<CapabilityMode>('READ_ONLY_INSPECTION');
   const wsRef = useRef<WebSocket | null>(null);
+  const onEventRef = useRef(options.onEvent);
+  onEventRef.current = options.onEvent;
+
+  // Track request generation to prevent stale GET responses overwriting newer selections
+  const generationRef = useRef(0);
 
   const getBaseUrl = useCallback(() => {
     return window.location.port === '5173'
@@ -26,11 +31,12 @@ export function useEngineClient(options: UseEngineClientOptions = {}) {
 
   // Fetch active workspace from engine REST endpoint
   const refreshWorkspace = useCallback(async () => {
+    const reqGen = ++generationRef.current;
     try {
       const res = await fetch(`${getBaseUrl()}/api/workspace`);
       if (res.ok) {
         const data = await res.json();
-        if (data.workspace) {
+        if (reqGen === generationRef.current && data.workspace) {
           setActiveWorkspace(data.workspace);
         }
       }
@@ -41,6 +47,7 @@ export function useEngineClient(options: UseEngineClientOptions = {}) {
 
   const selectWorkspace = useCallback(
     async (path: string) => {
+      const reqGen = ++generationRef.current;
       try {
         const res = await fetch(`${getBaseUrl()}/api/workspace/select`, {
           method: 'POST',
@@ -49,7 +56,7 @@ export function useEngineClient(options: UseEngineClientOptions = {}) {
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.workspace) {
+          if (reqGen === generationRef.current && data.workspace) {
             setActiveWorkspace(data.workspace);
           }
           return true;
@@ -91,7 +98,7 @@ export function useEngineClient(options: UseEngineClientOptions = {}) {
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            options.onEvent?.(data);
+            onEventRef.current?.(data);
           } catch { /* ignore non-json */ }
         };
 
@@ -119,7 +126,7 @@ export function useEngineClient(options: UseEngineClientOptions = {}) {
       if (reconnectTimer) clearTimeout(reconnectTimer);
       if (wsRef.current) wsRef.current.close();
     };
-  }, [getWsUrl, refreshWorkspace, options]);
+  }, [getWsUrl, refreshWorkspace]);
 
   return {
     connected,

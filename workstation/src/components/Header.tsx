@@ -26,7 +26,16 @@ export const Header: React.FC<HeaderProps> = ({
   connected,
 }) => {
   const isRtl = language === 'ar';
-  const folderName = workspace ? workspace.split(/[\\/]/).filter(Boolean).pop() || workspace : 'Select Workspace';
+  const defaultWorkspaceLabel = isRtl ? 'اختر مساحة العمل' : 'Select Workspace';
+  const folderName = workspace ? workspace.split(/[\\/]/).filter(Boolean).pop() || workspace : defaultWorkspaceLabel;
+
+  const connectionLabel = connected
+    ? (isRtl ? 'المحرك متصل' : 'ENGINE ONLINE')
+    : (isRtl ? 'غير متصل' : 'DISCONNECTED');
+
+  const capabilityLabel = capability === 'WORKSPACE_MUTATION'
+    ? (isRtl ? 'تعديل مساحة العمل' : 'WORKSPACE_MUTATION')
+    : (isRtl ? 'معاينة للقراءة فقط' : 'READ_ONLY_INSPECTION');
 
   return (
     <header className="flex h-12 w-full items-center justify-between border-b border-[#2a2a2a] bg-[#191919] px-4 text-xs select-none">
@@ -51,7 +60,7 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           onClick={onSelectWorkspace}
           className="flex items-center gap-1.5 rounded border border-[#2a2a2a] bg-[#141414] px-2.5 py-1 text-gray-300 hover:border-gray-600 hover:bg-[#1f1f1f] transition-colors"
-          title={workspace || 'Click to select workspace folder'}
+          title={workspace || (isRtl ? 'انقر لاختيار مجلد مساحة العمل' : 'Click to select workspace folder')}
         >
           <FolderOpen size={13} className="text-gray-400" />
           <span className="font-mono text-gray-200 truncate max-w-[200px]">
@@ -62,37 +71,41 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Controls & Badges */}
       <div className="flex items-center gap-2.5">
-        {/* Connection Indicator */}
+        {/* Connection Indicator - Strict monochrome neutral styling */}
         <div className="flex items-center gap-1.5 px-2 py-1 text-gray-400 font-mono text-[11px]">
           <span
             className={`h-2 w-2 rounded-full ${
-              connected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'
+              connected ? 'bg-white opacity-90' : 'border border-gray-500 bg-transparent'
             }`}
           />
-          <span>{connected ? 'ENGINE ONLINE' : 'DISCONNECTED'}</span>
+          <span>{connectionLabel}</span>
         </div>
 
         <div className="h-4 w-[1px] bg-[#333333]" />
 
-        {/* Capability Grant Badge */}
+        {/* Capability Grant Badge - Strict monochrome neutral styling */}
         <button
           onClick={onToggleCapability}
           className={`flex items-center gap-1.5 rounded px-2.5 py-1 font-mono text-[11px] border transition-colors ${
             capability === 'WORKSPACE_MUTATION'
-              ? 'bg-amber-950/50 border-amber-700/60 text-amber-300 hover:bg-amber-900/60'
-              : 'bg-emerald-950/50 border-emerald-700/60 text-emerald-300 hover:bg-emerald-900/60'
+              ? 'bg-[#1e1e1e] border-gray-500 text-gray-100 hover:bg-[#252525]'
+              : 'bg-[#141414] border-[#333333] text-gray-300 hover:bg-[#1a1a1a]'
           }`}
-          title="Click to toggle between Read-Only Inspection and Workspace Mutation mode"
+          title={
+            isRtl
+              ? 'انقر للتبديل بين وضع المعاينة للقراءة فقط ووضع تعديل الملفات'
+              : 'Click to toggle between Read-Only Inspection and Workspace Mutation mode'
+          }
         >
-          <Shield size={12} />
-          <span>{capability}</span>
+          <Shield size={12} className={capability === 'WORKSPACE_MUTATION' ? 'text-white' : 'text-gray-400'} />
+          <span>{capabilityLabel}</span>
         </button>
 
         {/* Language Toggle */}
         <button
           onClick={onToggleLanguage}
           className="flex items-center gap-1.5 rounded border border-[#2a2a2a] bg-[#141414] px-2.5 py-1 text-gray-300 hover:border-gray-600 hover:bg-[#1f1f1f] transition-colors font-mono"
-          title="Switch interface language / تبديل اللغة"
+          title={isRtl ? 'تبديل اللغة إلى الإنجليزية' : 'Switch interface language / تبديل اللغة'}
         >
           <Globe size={13} className="text-gray-400" />
           <span>{isRtl ? 'EN' : 'العربية (AR)'}</span>
@@ -102,7 +115,11 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           onClick={onTogglePane}
           className="flex items-center justify-center h-7 w-7 rounded border border-[#2a2a2a] bg-[#141414] text-gray-300 hover:border-gray-600 hover:bg-[#1f1f1f] transition-colors"
-          title={paneOpen ? 'Collapse auxiliary workstation pane' : 'Expand auxiliary workstation pane'}
+          title={
+            paneOpen
+              ? (isRtl ? 'إغلاق اللوحة الجانبية' : 'Collapse auxiliary workstation pane')
+              : (isRtl ? 'فتح اللوحة الجانبية' : 'Expand auxiliary workstation pane')
+          }
         >
           {paneOpen ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
         </button>

@@ -11,6 +11,7 @@ import type {
   DiffFile,
   TerminalLine,
   EvidenceItem,
+  ToolExecution,
 } from './types';
 
 // Electron bridge global interface
@@ -105,6 +106,29 @@ export function App() {
           timestamp: Date.now(),
         },
       ]);
+    } else if (type === 'tool_status' || type === 'tool_result') {
+      const toolId = event.toolId as string;
+      const status = (event.status as ToolExecution['status']) || (type === 'tool_result' ? 'completed' : undefined);
+      const result = event.result as string | undefined;
+      const error = event.error as string | undefined;
+
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (!msg.tools) return msg;
+          return {
+            ...msg,
+            tools: msg.tools.map((t) => {
+              if (t.id !== toolId) return t;
+              return {
+                ...t,
+                status: status || t.status,
+                result: result !== undefined ? result : t.result,
+                error: error !== undefined ? error : t.error,
+              };
+            }),
+          };
+        })
+      );
     }
   }, []);
 
@@ -196,47 +220,70 @@ export function App() {
   };
 
   const handleApproveTool = (toolId: string) => {
+    const sent = sendMessage({ type: 'tool_approval', toolId, approved: true });
+
     setMessages((prev) =>
       prev.map((msg) => {
         if (!msg.tools) return msg;
         return {
           ...msg,
-          tools: msg.tools.map((t) =>
-            t.id === toolId
-              ? {
-                  ...t,
-                  status: 'completed',
-                  result: 'Execution granted. Command finished with exit code 0.',
-                }
-              : t
-          ),
+          tools: msg.tools.map((t) => {
+            if (t.id !== toolId) return t;
+            if (sent) {
+              return {
+                ...t,
+                status: 'running',
+              };
+            } else {
+              return {
+                ...t,
+                status: 'failed',
+                error: 'Failed to deliver approval to local engine (disconnected).',
+              };
+            }
+          }),
         };
       })
     );
-
-    sendMessage({ type: 'tool_approval', toolId, approved: true });
   };
 
   const handleRejectTool = (toolId: string) => {
+    const sent = sendMessage({ type: 'tool_approval', toolId, approved: false });
+
     setMessages((prev) =>
       prev.map((msg) => {
         if (!msg.tools) return msg;
         return {
           ...msg,
-          tools: msg.tools.map((t) =>
-            t.id === toolId
-              ? {
-                  ...t,
-                  status: 'rejected',
-                  error: 'User denied permission for mutating operation.',
-                }
-              : t
-          ),
+          tools: msg.tools.map((t) => {
+            if (t.id !== toolId) return t;
+            if (sent) {
+              return {
+                ...t,
+                status: 'rejected',
+                error: 'User denied permission for mutating operation.',
+              };
+            } else {
+              return {
+                ...t,
+                status: 'failed',
+                error: 'Failed to deliver rejection to local engine (disconnected).',
+              };
+            }
+          }),
         };
       })
     );
+  };
 
-    sendMessage({ type: 'tool_approval', toolId, approved: false });
+  const handleAcceptDiff = (file: DiffFile) => {
+    setDiffFiles((prev) => prev.filter((f) => f.path !== file.path));
+    sendMessage({ type: 'diff_decision', path: file.path, decision: 'accept' });
+  };
+
+  const handleRejectDiff = (file: DiffFile) => {
+    setDiffFiles((prev) => prev.filter((f) => f.path !== file.path));
+    sendMessage({ type: 'diff_decision', path: file.path, decision: 'reject' });
   };
 
   const isRtl = language === 'ar';
@@ -294,6 +341,8 @@ export function App() {
           terminalLogs={terminalLogs}
           evidenceItems={evidenceItems}
           language={language}
+          onAcceptDiff={handleAcceptDiff}
+          onRejectDiff={handleRejectDiff}
           onClearTerminal={() => setTerminalLogs([])}
         />
       </div>
