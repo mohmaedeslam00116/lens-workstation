@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Implemented Electron desktop shell (`workstation/electron/main.ts`) supervising local `EngineServer` lifecycle, native `BrowserWindow` windowing, and secure context-isolated preload bridge (`workstation/electron/preload.ts`) exposing `electronDialogs`, `electronStorage`, `electronNotifications`, and `electronShell` APIs.
 - Implemented Sanitized Terminal execution engine (`engine/terminal/runner.mjs`) with strict environment variable allowlist stripping credentials and secrets, total output byte truncation safeguards, and cross-platform process-tree termination (`engine/terminal/tree-killer.mjs`).
 - Implemented Atomic Filesystem & Rollback Engine (`engine/filesystem/engine.mjs`) featuring pre-write SHA-256 integrity validation, all-or-nothing multi-file atomic transactions, persistent `.lens/transactions/tx-<id>.json` rollback manifests, and 1-click byte-for-byte state reversion.
+- Implemented React 18 Workstation UI (`workstation/src/`) featuring central Agent Canvas, collapsible thinking blocks, tool execution cards with human-in-the-loop approval checkpoints, PromptInput dock with @mentions and /slash commands, and collapsible Auxiliary Pane with Monaco Diff Editor (`@monaco-editor/react`), live terminal output, evidence tabs, and bilingual English LTR / Arabic RTL layout.
 
 
 
