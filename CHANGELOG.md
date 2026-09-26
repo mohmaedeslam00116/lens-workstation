@@ -17,4 +17,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dual TypeScript configuration (`tsconfig.json` for frontend DOM, `tsconfig.node.json` for Node.js engine and Electron).
 - Added zero-dependency Node.js test suite runner (`node --test`) with automated smoke testing.
 - Created root HTML shell, initial React 18 App entry, and hexagonal engine core types (`engine/core/types.ts`).
+- Implemented Local Engine Server (`engine/server/index.mjs`) hosting HTTP REST endpoints (`/health`, `/api/workspace`), SPA static asset serving with fallback routing, and WebSocket RPC streaming on `/ws` with broadcast event dispatch.
+
 
