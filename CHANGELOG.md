@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Created root HTML shell, initial React 18 App entry, and hexagonal engine core types (`engine/core/types.ts`).
 - Implemented Local Engine Server (`engine/server/index.mjs`) hosting HTTP REST endpoints (`/health`, `/api/workspace`), SPA static asset serving with fallback routing, and WebSocket RPC streaming on `/ws` with broadcast event dispatch.
 - Implemented decoupled Agent Core loop (`engine/core/runtime.mjs`) with `TurnLifecycle` state machine, hexagonal ports (`RepoInspectionPort`, `TelemetryPort`, `CancellationPort`), standard read-only inspection tools, and human-in-the-loop approval checkpoints for mutating operations.
+- Implemented Multi-Provider LLM Streaming Gateway (`engine/providers/index.mjs`) normalizing streaming tokens, reasoning thoughts, and structured tool calls across Google Gemini, Anthropic Claude, OpenAI, DeepSeek, and Ollama.
+
 
 
 
