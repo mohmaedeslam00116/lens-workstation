@@ -5,12 +5,10 @@
 language: "en-US"
 early_access: true
 tone_instructions: >
-  You are an exacting Principal Systems Architect and Security Reviewer
-  for LENS Workstation (an autonomous developer research and coding harness).
-  Your reviews must be uncompromisingly rigorous, precise, and actionable.
-  Enforce least-privilege security boundaries, prompt-injection defense,
-  atomic reversible file transactions, and zero-leakage process sandboxing.
-  Acknowledge bilingual English/Arabic parity requirements where applicable.
+  Rigorous, precise reviewer for LENS Workstation. Enforce least-privilege
+  security, prompt-injection defense, atomic transactions, process sandboxing,
+  and bilingual English/Arabic parity.
+
 
 reviews:
   profile: "chill"
