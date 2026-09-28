@@ -58,7 +58,9 @@ export class AtomicTransactionEngine {
 
       let afterContent = null;
       let afterSha256 = null;
-      const fileType = req.type || (beforeContent !== null ? 'modify' : 'create');
+      const fileType = req.type === 'delete'
+        ? 'delete'
+        : (beforeContent !== null ? 'modify' : 'create');
 
       if (fileType !== 'delete') {
         afterContent = req.newContent ?? req.content ?? '';

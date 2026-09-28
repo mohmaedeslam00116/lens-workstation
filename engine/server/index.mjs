@@ -89,14 +89,18 @@ export class EngineServer {
           }
 
           const modified = args.content || args.modified || '';
-          this.proposedDiffs.set(args.path, { path: args.path, original, modified });
+          const diffId = `diff-${randomUUID()}`;
+          const diffEntry = { id: diffId, path: args.path, original, modified };
+          this.proposedDiffs.set(diffId, diffEntry);
+          this.proposedDiffs.set(args.path, diffEntry);
 
           this.broadcast({
             type: 'diff_preview',
-            file: { path: args.path, original, modified },
+            diffId,
+            file: { id: diffId, path: args.path, original, modified },
           });
 
-          return { status: 'diff_proposed', path: args.path };
+          return { status: 'diff_proposed', diffId, path: args.path };
         },
       },
       run_command: {
@@ -104,17 +108,12 @@ export class EngineServer {
         description: 'Run a shell command requiring human approval',
         isMutating: true,
         execute: async (args) => {
-          let cmd = args.command;
-          let cmdArgs = args.args || [];
-
-          if (process.platform === 'win32') {
-            cmdArgs = ['/c', cmd];
-            cmd = 'cmd.exe';
-          }
+          const command = args.command;
+          const commandArgs = args.args || [];
 
           const result = await this.processRunner.execute({
-            command: cmd,
-            args: cmdArgs,
+            command,
+            args: commandArgs,
             cwd: this.workspacePath,
             onStdout: (text) => {
               this.broadcast({ type: 'terminal_output', stream: 'stdout', data: text });
@@ -157,7 +156,10 @@ export class EngineServer {
             type: 'tool_call',
             callId: `call-${Date.now()}`,
             toolName: 'run_command',
-            args: { command: 'echo "LENS Test Runner OK"' },
+            args: {
+              command: 'node',
+              args: ['-e', "console.log('LENS Test Runner OK')"],
+            },
           };
           yield { type: 'content', text: 'Test execution finished.' };
         } else if (prompt.startsWith('/plan')) {
@@ -298,8 +300,9 @@ export class EngineServer {
         reason: reason || (approved ? undefined : 'User denied permission'),
       });
     } else if (msg.type === 'diff_decision') {
-      const { path: filePath, decision } = msg;
-      const proposed = this.proposedDiffs.get(filePath);
+      const { path: filePath, diffId, id, decision } = msg;
+      const targetId = diffId || id;
+      const proposed = (targetId ? this.proposedDiffs.get(targetId) : null) || (filePath ? this.proposedDiffs.get(filePath) : null);
 
       if (decision === 'accept' && proposed) {
         try {
@@ -307,19 +310,21 @@ export class EngineServer {
             { path: proposed.path, type: 'modify', newContent: proposed.modified },
           ]);
           const result = await this.atomicFs.applyTransaction(changeSet);
-          this.proposedDiffs.delete(filePath);
+          if (proposed.id) this.proposedDiffs.delete(proposed.id);
+          this.proposedDiffs.delete(proposed.path);
 
           const txId = result.id || result.transactionId;
           this.broadcast({
             type: 'terminal_output',
             stream: 'stdout',
-            data: `[AtomicEngine] Transaction ${txId} applied for ${filePath}.`,
+            data: `[AtomicEngine] Transaction ${txId} applied for ${proposed.path}.`,
           });
           this.broadcast({
             type: 'transaction_applied',
             transactionId: txId,
             id: txId,
-            path: filePath,
+            diffId: proposed.id,
+            path: proposed.path,
           });
         } catch (err) {
           this.broadcast({
@@ -328,9 +333,25 @@ export class EngineServer {
             data: `[AtomicEngine Error] Failed to apply diff: ${err.message}`,
           });
         }
-      } else {
-        this.proposedDiffs.delete(filePath);
+      } else if (proposed) {
+        if (proposed.id) this.proposedDiffs.delete(proposed.id);
+        this.proposedDiffs.delete(proposed.path);
       }
+    }
+  }
+
+  isAllowedOrigin(originHeader) {
+    if (!originHeader) return true;
+    try {
+      const u = new URL(originHeader);
+      return (
+        u.hostname === 'localhost' ||
+        u.hostname === '127.0.0.1' ||
+        u.protocol === 'file:' ||
+        u.protocol === 'vscode-webview:'
+      );
+    } catch {
+      return false;
     }
   }
 
@@ -341,6 +362,13 @@ export class EngineServer {
       this.wss = new WebSocketServer({ noServer: true });
 
       this.httpServer.on('upgrade', (request, socket, head) => {
+        const origin = request.headers.origin;
+        if (!this.isAllowedOrigin(origin)) {
+          socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+          socket.destroy();
+          return;
+        }
+
         const { pathname } = new URL(request.url, `http://${request.headers.host}`);
         if (pathname === '/ws') {
           this.wss.handleUpgrade(request, socket, head, (ws) => {
@@ -364,7 +392,9 @@ export class EngineServer {
         }));
 
         ws.on('message', (rawData) => {
-          this.handleWsMessage(ws, rawData);
+          this.handleWsMessage(ws, rawData).catch((err) => {
+            this.broadcast({ type: 'error', error: String(err?.message ?? err) });
+          });
         });
 
         ws.on('close', () => {
@@ -429,12 +459,22 @@ export class EngineServer {
   }
 
   async handleHttpRequest(req, res) {
+    const origin = req.headers.origin;
+    if (origin && !this.isAllowedOrigin(origin)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Forbidden cross-origin request' }));
+      return;
+    }
+
     const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
     const pathname = parsedUrl.pathname;
     const method = req.method;
 
-    // CORS & Content-Type defaults
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // CORS & Content-Type defaults (restrict to allowed origin)
+    if (origin && this.isAllowedOrigin(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+    }
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 

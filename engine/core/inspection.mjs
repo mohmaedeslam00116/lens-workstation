@@ -1,5 +1,5 @@
-import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
-import { resolve, join, isAbsolute, relative } from 'node:path';
+import { readFileSync, existsSync, readdirSync, statSync, realpathSync } from 'node:fs';
+import { resolve, join, isAbsolute, relative, sep } from 'node:path';
 
 /**
  * Production-ready inspection port safely scoped to the active workspace directory.
@@ -10,13 +10,14 @@ export class WorkspaceInspectionPort {
    * @param {string} [workspaceRoot=process.cwd()]
    */
   constructor(workspaceRoot = process.cwd()) {
-    this.workspaceRoot = resolve(workspaceRoot);
+    const absRoot = resolve(workspaceRoot);
+    this.workspaceRoot = existsSync(absRoot) ? realpathSync(absRoot) : absRoot;
     this.ignoredDirs = new Set(['.git', 'node_modules', 'dist', 'dist-package', '.lens']);
   }
 
   /**
    * Resolves and validates a relative path inside the workspace.
-   * Throws if path attempts directory traversal.
+   * Throws if path attempts directory traversal or points outside via symlink.
    *
    * @param {string} relPath
    * @returns {string} Absolute resolved path
@@ -26,9 +27,17 @@ export class WorkspaceInspectionPort {
       ? resolve(relPath)
       : resolve(this.workspaceRoot, relPath);
 
-    const rel = relative(this.workspaceRoot, absPath);
-    if (rel.startsWith('..') || isAbsolute(rel)) {
+    const isOutside = (targetPath) => {
+      const rel = relative(this.workspaceRoot, targetPath);
+      return rel === '..' || rel.startsWith('..' + sep) || isAbsolute(rel);
+    };
+
+    if (isOutside(absPath)) {
       throw new Error(`Path traversal denied: "${relPath}" is outside workspace root`);
+    }
+
+    if (existsSync(absPath) && isOutside(realpathSync(absPath))) {
+      throw new Error(`Path traversal denied: "${relPath}" resolves outside workspace root`);
     }
 
     return absPath;
