@@ -4,6 +4,7 @@ import { AgentCanvas } from './components/AgentCanvas';
 import { PromptInput } from './components/PromptInput';
 import { AuxiliaryPane } from './components/AuxiliaryPane';
 import { SettingsModal } from './components/SettingsModal';
+import { SubagentInspectorDrawer } from './components/SubagentInspectorDrawer';
 import { useEngineClient } from './hooks/useEngineClient';
 import type {
   CanvasMessage,
@@ -14,6 +15,8 @@ import type {
   EvidenceItem,
   ToolExecution,
   AutonomyMode,
+  SubagentInfo,
+  SubagentTranscriptEntry,
 } from './types';
 
 // Electron bridge global interface
@@ -33,6 +36,8 @@ export function App() {
   const [activeTab, setActiveTab] = useState<TabType>('diff');
   const [autonomyMode, setAutonomyMode] = useState<AutonomyMode>('supervised');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [subagents, setSubagents] = useState<Map<string, SubagentInfo>>(new Map());
+  const [inspectingSubagentId, setInspectingSubagentId] = useState<string | null>(null);
 
 
   const [messages, setMessages] = useState<CanvasMessage[]>([
@@ -140,6 +145,128 @@ export function App() {
     } else if (type === 'autonomy_mode_changed') {
       const mode = event.mode as AutonomyMode;
       if (mode) setAutonomyMode(mode);
+    } else if (type === 'subagent:started') {
+      const subId = (event.id as string) || (event.conversationId as string);
+      if (subId) {
+        setSubagents((prev) => {
+          const next = new Map(prev);
+          const existing = next.get(subId);
+          next.set(subId, {
+            id: subId,
+            role: (event.role as string) || existing?.role || 'Subagent Worker',
+            type: (event.type as string) || (event.subagentType as string) || existing?.type || 'general',
+            prompt: (event.prompt as string) || existing?.prompt || '',
+            status: 'running',
+            stateDetail: 'Initializing subagent task...',
+            startTime: (event.timestamp as number) || Date.now(),
+            transcript: existing?.transcript || [],
+          });
+          return next;
+        });
+      }
+    } else if (type === 'subagent:step') {
+      const subId = (event.id as string) || (event.conversationId as string);
+      if (subId) {
+        setSubagents((prev) => {
+          const next = new Map(prev);
+          const existing = next.get(subId);
+          if (!existing) return prev;
+          const entry: SubagentTranscriptEntry = {
+            id: subId,
+            stepIndex: event.stepIndex as number,
+            step_index: event.stepIndex as number,
+            type: (event.step ? (event.step as Record<string, unknown>).type : undefined) as string || (event.toolCall ? 'tool_call' : event.thought ? 'thought' : (event.type as string) || 'step'),
+            state: event.state as string,
+            stateDetail: (event.stateDetail as string) || (event.step ? (event.step as Record<string, unknown>).stateDetail as string : undefined),
+            thought: event.thought as string,
+            chunk: event.chunk as string,
+            toolCall: event.toolCall as { name?: string; args?: Record<string, unknown> } | undefined,
+            toolResult: event.toolResult,
+            toolName: (event.toolCall as Record<string, unknown>)?.name as string || (event.step as Record<string, unknown>)?.toolName as string,
+            args: (event.toolCall as Record<string, unknown>)?.args as Record<string, unknown> || (event.step as Record<string, unknown>)?.args as Record<string, unknown>,
+            result: event.toolResult || (event.step as Record<string, unknown>)?.result,
+            error: (event.step as Record<string, unknown>)?.error as string,
+            timestamp: (event.timestamp as number) || Date.now(),
+          };
+          const updatedTranscript = [...(existing.transcript || []), entry];
+          next.set(subId, {
+            ...existing,
+            stateDetail: entry.stateDetail || existing.stateDetail,
+            transcript: updatedTranscript,
+          });
+          return next;
+        });
+      }
+    } else if (type === 'subagent:done') {
+      const subId = (event.id as string) || (event.conversationId as string);
+      if (subId) {
+        setSubagents((prev) => {
+          const next = new Map(prev);
+          const existing = next.get(subId);
+          if (!existing) return prev;
+          const durationMs = (event.durationMs as number) || (Date.now() - existing.startTime);
+          const entry: SubagentTranscriptEntry = {
+            id: subId,
+            type: 'result',
+            result: event.result,
+            content: typeof event.result === 'string' ? event.result : JSON.stringify(event.result),
+            timestamp: (event.timestamp as number) || Date.now(),
+          };
+          next.set(subId, {
+            ...existing,
+            status: 'completed',
+            result: event.result,
+            durationMs,
+            endTime: Date.now(),
+            stateDetail: 'Task completed successfully',
+            transcript: [...(existing.transcript || []), entry],
+          });
+          return next;
+        });
+      }
+    } else if (type === 'subagent:failed') {
+      const subId = (event.id as string) || (event.conversationId as string);
+      if (subId) {
+        setSubagents((prev) => {
+          const next = new Map(prev);
+          const existing = next.get(subId);
+          if (!existing) return prev;
+          const durationMs = (event.durationMs as number) || (Date.now() - existing.startTime);
+          const entry: SubagentTranscriptEntry = {
+            id: subId,
+            type: 'error',
+            error: (event.error as string) || 'Subagent execution error',
+            timestamp: (event.timestamp as number) || Date.now(),
+          };
+          next.set(subId, {
+            ...existing,
+            status: 'failed',
+            error: (event.error as string) || 'Subagent execution error',
+            durationMs,
+            endTime: Date.now(),
+            stateDetail: `Failed: ${event.error}`,
+            transcript: [...(existing.transcript || []), entry],
+          });
+          return next;
+        });
+      }
+    } else if (type === 'subagent_killed') {
+      const subId = event.id as string;
+      if (subId) {
+        setSubagents((prev) => {
+          const next = new Map(prev);
+          const existing = next.get(subId);
+          if (!existing) return prev;
+          next.set(subId, {
+            ...existing,
+            status: 'killed',
+            endTime: Date.now(),
+            durationMs: Date.now() - existing.startTime,
+            stateDetail: 'Terminated by developer',
+          });
+          return next;
+        });
+      }
     }
   }, []);
 
@@ -312,6 +439,47 @@ export function App() {
     sendMessage({ type: 'diff_decision', path: file.path, decision: 'reject' });
   };
 
+  const handleInspectSubagent = async (subagentId: string) => {
+    setInspectingSubagentId(subagentId);
+    try {
+      const res = await fetch(`/api/subagents/${encodeURIComponent(subagentId)}/transcript`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.transcript) && data.transcript.length > 0) {
+          setSubagents((prev) => {
+            const next = new Map(prev);
+            const existing = next.get(subagentId);
+            if (existing) {
+              next.set(subagentId, {
+                ...existing,
+                transcript: data.transcript,
+              });
+            }
+            return next;
+          });
+        }
+      }
+    } catch {
+      // Ignore network errors in test/offline environments
+    }
+  };
+
+  const handleKillSubagent = (subagentId: string) => {
+    sendMessage({ type: 'kill_subagent', id: subagentId });
+    setSubagents((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(subagentId);
+      if (existing) {
+        next.set(subagentId, {
+          ...existing,
+          status: 'killed',
+          stateDetail: 'Terminated by developer',
+        });
+      }
+      return next;
+    });
+  };
+
   const isRtl = language === 'ar';
 
   return (
@@ -354,6 +522,9 @@ export function App() {
             language={language}
             onApproveTool={handleApproveTool}
             onRejectTool={handleRejectTool}
+            subagents={subagents}
+            onInspectSubagent={handleInspectSubagent}
+            onKillSubagent={handleKillSubagent}
           />
           <PromptInput
             onSend={handleSendPrompt}
@@ -386,6 +557,20 @@ export function App() {
       <SettingsModal
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
+        language={language}
+      />
+
+      {/* Subagent Inspector Drawer */}
+      <SubagentInspectorDrawer
+        isOpen={Boolean(inspectingSubagentId)}
+        subagent={inspectingSubagentId ? subagents.get(inspectingSubagentId) || null : null}
+        transcript={
+          inspectingSubagentId
+            ? subagents.get(inspectingSubagentId)?.transcript || []
+            : []
+        }
+        onClose={() => setInspectingSubagentId(null)}
+        onKill={handleKillSubagent}
         language={language}
       />
     </div>

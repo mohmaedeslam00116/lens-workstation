@@ -13,13 +13,17 @@ import {
   User,
   Sparkles,
 } from 'lucide-react';
-import type { CanvasMessage, ToolExecution, ThoughtBlock, Language } from '../types';
+import type { CanvasMessage, ToolExecution, ThoughtBlock, Language, SubagentInfo } from '../types';
+import { SubagentCard } from './SubagentCard';
 
 interface AgentCanvasProps {
   messages: CanvasMessage[];
   language: Language;
   onApproveTool: (toolId: string) => void;
   onRejectTool: (toolId: string) => void;
+  subagents?: Map<string, SubagentInfo> | SubagentInfo[];
+  onInspectSubagent?: (subagentId: string) => void;
+  onKillSubagent?: (subagentId: string) => void;
 }
 
 export const AgentCanvas: React.FC<AgentCanvasProps> = ({
@@ -27,9 +31,63 @@ export const AgentCanvas: React.FC<AgentCanvasProps> = ({
   language,
   onApproveTool,
   onRejectTool,
+  subagents,
+  onInspectSubagent,
+  onKillSubagent,
 }) => {
   const isRtl = language === 'ar';
   const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  const getSubagentForTool = (tool: ToolExecution): SubagentInfo => {
+    let convId = '';
+    if (tool.result) {
+      if (typeof tool.result === 'object' && tool.result !== null) {
+        convId = ((tool.result as Record<string, unknown>).conversationId as string) || ((tool.result as Record<string, unknown>).id as string) || '';
+      } else if (typeof tool.result === 'string') {
+        try {
+          const parsed = JSON.parse(tool.result);
+          convId = parsed.conversationId || parsed.id || '';
+        } catch {
+          // Ignore JSON parse errors
+        }
+      }
+    }
+
+    if (subagents) {
+      if (subagents instanceof Map) {
+        if (convId && subagents.has(convId)) {
+          return subagents.get(convId)!;
+        }
+        for (const sub of subagents.values()) {
+          if (sub.role === (tool.args?.role as string)) return sub;
+        }
+      } else if (Array.isArray(subagents)) {
+        if (convId) {
+          const found = subagents.find((s) => s.id === convId);
+          if (found) return found;
+        }
+        const byRole = subagents.find((s) => s.role === (tool.args?.role as string));
+        if (byRole) return byRole;
+      }
+    }
+
+    const role = (tool.args?.role as string) || 'Subagent Worker';
+    const type = (tool.args?.type as string) || (tool.args?.subagentType as string) || 'general';
+    const prompt = (tool.args?.prompt as string) || '';
+    const status = tool.status === 'completed' ? 'completed' : tool.status === 'failed' ? 'failed' : 'running';
+
+    return {
+      id: convId || `sub-${tool.id}`,
+      role,
+      type,
+      prompt,
+      status,
+      stateDetail: tool.error || (status === 'completed' ? 'Execution completed' : 'Active subagent execution'),
+      startTime: Date.now(),
+      result: tool.result,
+      error: tool.error,
+    };
+  };
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -98,16 +156,41 @@ export const AgentCanvas: React.FC<AgentCanvasProps> = ({
                   <ThoughtBlockView key={thought.id} thought={thought} isRtl={isRtl} />
                 ))}
 
-                {/* Tool Executions */}
-                {msg.tools?.map((tool) => (
-                  <ToolExecutionCard
-                    key={tool.id}
-                    tool={tool}
-                    isRtl={isRtl}
-                    onApprove={() => onApproveTool(tool.id)}
-                    onReject={() => onRejectTool(tool.id)}
+                {/* Subagents directly attached to message */}
+                {msg.subagents?.map((subagent) => (
+                  <SubagentCard
+                    key={subagent.id}
+                    subagent={subagent}
+                    language={language}
+                    onInspect={onInspectSubagent}
+                    onKill={onKillSubagent}
                   />
                 ))}
+
+                {/* Tool Executions */}
+                {msg.tools?.map((tool) => {
+                  if (tool.name === 'invoke_subagent') {
+                    const subagentInfo = getSubagentForTool(tool);
+                    return (
+                      <SubagentCard
+                        key={tool.id}
+                        subagent={subagentInfo}
+                        language={language}
+                        onInspect={onInspectSubagent}
+                        onKill={onKillSubagent}
+                      />
+                    );
+                  }
+                  return (
+                    <ToolExecutionCard
+                      key={tool.id}
+                      tool={tool}
+                      isRtl={isRtl}
+                      onApprove={() => onApproveTool(tool.id)}
+                      onReject={() => onRejectTool(tool.id)}
+                    />
+                  );
+                })}
 
                 {/* Assistant Markdown Content */}
                 {msg.content && (
