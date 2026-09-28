@@ -14,6 +14,7 @@ describe('React Workstation UI — Agent Canvas & Auxiliary Pane (Ticket #10)', 
   let AgentCanvas;
   let PromptInput;
   let AuxiliaryPane;
+  let SettingsModal;
 
   before(async () => {
     tempDir = resolve(process.cwd(), '.lens-ui-test-dist');
@@ -27,6 +28,7 @@ describe('React Workstation UI — Agent Canvas & Auxiliary Pane (Ticket #10)', 
         'workstation/src/components/AgentCanvas.tsx',
         'workstation/src/components/PromptInput.tsx',
         'workstation/src/components/AuxiliaryPane.tsx',
+        'workstation/src/components/SettingsModal.tsx',
       ],
       bundle: true,
       format: 'esm',
@@ -54,7 +56,11 @@ describe('React Workstation UI — Agent Canvas & Auxiliary Pane (Ticket #10)', 
 
     const auxMod = await import(pathToFileURL(join(tempDir, 'AuxiliaryPane.mjs')));
     AuxiliaryPane = auxMod.AuxiliaryPane;
+
+    const settingsMod = await import(pathToFileURL(join(tempDir, 'SettingsModal.mjs')));
+    SettingsModal = settingsMod.SettingsModal;
   });
+
 
   after(() => {
     if (tempDir && existsSync(tempDir)) {
@@ -246,4 +252,60 @@ describe('React Workstation UI — Agent Canvas & Auxiliary Pane (Ticket #10)', 
     assert.ok(arPrompt.includes('الملفات'), 'PromptInput AR must display localized files button');
     assert.ok(arPrompt.includes('صلاحية التعديل مفعلة'), 'PromptInput AR must display localized mutation status');
   });
+
+  it('renders Header with Settings button when onOpenSettings callback is provided', () => {
+    const headerHtml = renderToStaticMarkup(
+      React.createElement(Header, {
+        workspace: 'my-project',
+        onSelectWorkspace: () => {},
+        capability: 'READ_ONLY_INSPECTION',
+        onToggleCapability: () => {},
+        language: 'en',
+        onToggleLanguage: () => {},
+        paneOpen: true,
+        onTogglePane: () => {},
+        connected: true,
+        onOpenSettings: () => {},
+      })
+    );
+    assert.ok(headerHtml.includes('Settings'), 'Header must render Settings button');
+  });
+
+  it('renders SettingsModal with provider profiles, API key inputs, and bilingual labels', () => {
+    const modalHtmlEn = renderToStaticMarkup(
+      React.createElement(SettingsModal, {
+        isOpen: true,
+        onClose: () => {},
+        language: 'en',
+      })
+    );
+    assert.ok(modalHtmlEn.includes('Model Providers &amp; Gateway Settings') || modalHtmlEn.includes('Model Providers & Gateway Settings'));
+    assert.ok(modalHtmlEn.includes('Kilo Gateway'), 'Must render Kilo Gateway profile');
+    assert.ok(modalHtmlEn.includes('OpenCode'), 'Must render OpenCode profile');
+    assert.ok(modalHtmlEn.includes('Cline / OpenRouter'), 'Must render Cline profile');
+    assert.ok(modalHtmlEn.includes('Google Gemini'), 'Must render Gemini profile');
+    assert.ok(modalHtmlEn.includes('Save &amp; Activate') || modalHtmlEn.includes('Save & Activate'));
+
+    // Arabic
+    const modalHtmlAr = renderToStaticMarkup(
+      React.createElement(SettingsModal, {
+        isOpen: true,
+        onClose: () => {},
+        language: 'ar',
+      })
+    );
+    assert.ok(modalHtmlAr.includes('إعدادات النماذج وبوابات الذكاء الاصطناعي'));
+    assert.ok(modalHtmlAr.includes('حفظ وتفعيل'));
+
+    // Hidden when isOpen is false
+    const hiddenModal = renderToStaticMarkup(
+      React.createElement(SettingsModal, {
+        isOpen: false,
+        onClose: () => {},
+        language: 'en',
+      })
+    );
+    assert.equal(hiddenModal, '');
+  });
 });
+
