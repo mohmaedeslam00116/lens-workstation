@@ -59,3 +59,31 @@ A unified workspace container persisted under `<workspace>/.lens/sessions/` that
 The runtime supervisor coordinating:
 1. **Research Loop (Loop 1)**: Web scraping, BM25 retrieval, document ranking, and evidence claims synthesis.
 2. **Coding Loop (Loop 2)**: Repo inspection, change set generation, user approval gates, transaction execution, and terminal verification.
+
+### SubagentRuntime
+The isolated asynchronous sub-process and context runner executing delegated tasks (such as `research`, `code_reviewer`, or `general`). Operates with its own lifecycle, session transcript (`transcript.jsonl`), and WebSocket event emitter without blocking the primary agent loop.
+
+### SubagentTimelineWidget
+An interactive timeline card rendered within the Agent Canvas stream upon invocation of `invoke_subagent`. Displays real-time role identity, active tool status (`stateDetail`), execution timer, and deep-link navigation to the subagent's inspector.
+
+### AuxiliaryInspectorDrawer
+A slide-over diagnostic and observation panel appearing on the right side of the interface when inspecting an active or completed subagent. Renders the live transcript stream, reasoning steps, tool invocations, scraped contents, and extracted citations.
+
+### StreamingToolAccumulator
+A stateful chunk accumulator residing in the `MultiProviderGateway` that buffers fragmented SSE streaming arguments from OpenAI and Kilo Gateway, resolving complete tool invocations and preventing JSON parsing syntax errors.
+
+### DPAPICredentialStore
+A secure local credential vault utilizing Electron `safeStorage` (backed by Windows Data Protection API) to encrypt API keys at rest in `%APPDATA%\LENS\credentials.enc` with automatic environment variable fallback.
+
+### SlidingToolWindowCompactor
+A context management subsystem within the ReAct loop that keeps the initial task and the 3 most recent tool results in full detail, while compressing older tool outputs into 1-line semantic summaries to prevent context exhaustion.
+
+### MultiTierExtractionLadder
+A fault-tolerant web scraping pipeline executing a 3-tier fallback sequence: Tier 1 fast HTTP fetch with `linkedom` DOM emulation; Tier 2 markdown reader proxy (`r.jina.ai`) upon 403/Cloudflare blocks; Tier 3 graceful bypass.
+
+### BilingualBM25Index
+A pure TypeScript in-memory inverted index implementing Okapi BM25 scoring with native text normalization for both Arabic (diacritic, tatweel, Alef, and Taa Marbuta normalization) and English.
+
+### ZeroHallucinationGroundingAudit
+A post-synthesis deterministic audit pass that cross-references all bracketed citations `[n]` against the pre-allocated immutable `GroundedExcerpt` pool, stripping or re-grounding any unverified claims before presentation.
+
