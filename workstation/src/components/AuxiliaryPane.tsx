@@ -24,6 +24,7 @@ interface AuxiliaryPaneProps {
   onAcceptDiff?: (file: DiffFile) => void;
   onRejectDiff?: (file: DiffFile) => void;
   onClearTerminal?: () => void;
+  onOpenEvidenceDrawer?: () => void;
 }
 
 export const AuxiliaryPane: React.FC<AuxiliaryPaneProps> = ({
@@ -38,6 +39,7 @@ export const AuxiliaryPane: React.FC<AuxiliaryPaneProps> = ({
   onAcceptDiff,
   onRejectDiff,
   onClearTerminal,
+  onOpenEvidenceDrawer,
 }) => {
   const isRtl = language === 'ar';
   const [selectedDiffIndex, setSelectedDiffIndex] = useState(0);
@@ -236,15 +238,28 @@ export const AuxiliaryPane: React.FC<AuxiliaryPaneProps> = ({
 
         {/* TAB 3: EVIDENCE & CITATIONS */}
         {activeTab === 'evidence' && (
-          <div className="flex flex-col h-full p-4 overflow-y-auto space-y-3 bg-[#111111] text-xs">
-            {evidenceItems.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-gray-500">
-                <Search size={32} className="mb-2 text-gray-600" />
-                <p className="font-mono">
-                  {isRtl ? 'لا توجد أدلة بحثية أو شواهد مسترجعة حالياً.' : 'No retrieved research evidence yet.'}
-                </p>
+          <div className="flex flex-col h-full bg-[#111111] text-xs">
+            {onOpenEvidenceDrawer && (
+              <div className="flex items-center justify-between border-b border-[#222222] bg-[#161616] px-3 py-1.5 text-[11px] text-gray-400 select-none">
+                <span>{isRtl ? 'الأدلة المسترجعة' : 'Retrieved Evidence'}</span>
+                <button
+                  onClick={onOpenEvidenceDrawer}
+                  className="flex items-center gap-1 rounded bg-[#222222] border border-[#333333] px-2 py-0.5 text-[10px] text-gray-300 hover:text-white hover:bg-[#2a2a2a] transition-colors"
+                >
+                  <ExternalLink size={10} />
+                  <span>{isRtl ? 'فتح درج الأدلة' : 'Open Evidence Drawer'}</span>
+                </button>
               </div>
-            ) : (
+            )}
+            <div className="flex-1 p-4 overflow-y-auto space-y-3">
+              {evidenceItems.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-gray-500">
+                  <Search size={32} className="mb-2 text-gray-600" />
+                  <p className="font-mono">
+                    {isRtl ? 'لا توجد أدلة بحثية أو شواهد مسترجعة حالياً.' : 'No retrieved research evidence yet.'}
+                  </p>
+                </div>
+              ) : (
               evidenceItems.map((item) => (
                 <div
                   key={item.id}
@@ -276,6 +291,7 @@ export const AuxiliaryPane: React.FC<AuxiliaryPaneProps> = ({
                 </div>
               ))
             )}
+            </div>
           </div>
         )}
       </div>

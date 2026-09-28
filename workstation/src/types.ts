@@ -93,3 +93,37 @@ export interface EvidenceItem {
   snippet: string;
   url?: string;
 }
+
+export interface GroundedExcerpt {
+  index: number;
+  bracket: string;
+  chunkId: string;
+  milestoneId: string;
+  text: string;
+  sourceUrl: string;
+  sourceTitle: string;
+  sourceDomain: string;
+  relevanceScore: number;
+}
+
+export interface ContradictionClaim {
+  sourceIndex: number;
+  assertion: string;
+  domain: string;
+}
+
+export interface ContradictionCallout {
+  topicOrMetric: string;
+  claims: ContradictionClaim[];
+  explanation: string;
+}
+
+export interface GroundingAuditRecord {
+  sanitizedReportMarkdown: string;
+  totalCitationsFound: number;
+  validCitationsCount: number;
+  hallucinatedCitationsCount: number;
+  validIndices: number[];
+  hallucinatedIndices: number[];
+  contradictionsDetected: ContradictionCallout[];
+}

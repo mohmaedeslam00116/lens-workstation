@@ -5,6 +5,7 @@ import { PromptInput } from './components/PromptInput';
 import { AuxiliaryPane } from './components/AuxiliaryPane';
 import { SettingsModal } from './components/SettingsModal';
 import { SubagentInspectorDrawer } from './components/SubagentInspectorDrawer';
+import { EvidenceDrawer } from './components/EvidenceDrawer';
 import { useEngineClient } from './hooks/useEngineClient';
 import type {
   CanvasMessage,
@@ -17,6 +18,9 @@ import type {
   AutonomyMode,
   SubagentInfo,
   SubagentTranscriptEntry,
+  GroundedExcerpt,
+  ContradictionCallout,
+  GroundingAuditRecord,
 } from './types';
 
 // Electron bridge global interface
@@ -38,6 +42,10 @@ export function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [subagents, setSubagents] = useState<Map<string, SubagentInfo>>(new Map());
   const [inspectingSubagentId, setInspectingSubagentId] = useState<string | null>(null);
+  const [evidenceDrawerOpen, setEvidenceDrawerOpen] = useState(false);
+  const [groundedExcerpts, setGroundedExcerpts] = useState<GroundedExcerpt[]>([]);
+  const [contradictionCallouts, setContradictionCallouts] = useState<ContradictionCallout[]>([]);
+  const [groundingAuditRecord, setGroundingAuditRecord] = useState<GroundingAuditRecord | null>(null);
 
 
   const [messages, setMessages] = useState<CanvasMessage[]>([
@@ -267,6 +275,17 @@ export function App() {
           return next;
         });
       }
+    } else if (type === 'research_evidence' || type === 'research:evidence') {
+      if (Array.isArray(event.excerpts)) {
+        setGroundedExcerpts(event.excerpts as GroundedExcerpt[]);
+      }
+      if (Array.isArray(event.contradictions)) {
+        setContradictionCallouts(event.contradictions as ContradictionCallout[]);
+      }
+      if (event.audit) {
+        setGroundingAuditRecord(event.audit as GroundingAuditRecord);
+      }
+      setEvidenceDrawerOpen(true);
     }
   }, []);
 
@@ -550,6 +569,7 @@ export function App() {
           onAcceptDiff={handleAcceptDiff}
           onRejectDiff={handleRejectDiff}
           onClearTerminal={() => setTerminalLogs([])}
+          onOpenEvidenceDrawer={() => setEvidenceDrawerOpen(true)}
         />
       </div>
 
@@ -571,6 +591,16 @@ export function App() {
         }
         onClose={() => setInspectingSubagentId(null)}
         onKill={handleKillSubagent}
+        language={language}
+      />
+
+      {/* Verified Evidence Drawer */}
+      <EvidenceDrawer
+        isOpen={evidenceDrawerOpen}
+        onClose={() => setEvidenceDrawerOpen(false)}
+        excerpts={groundedExcerpts}
+        contradictions={contradictionCallouts}
+        auditRecord={groundingAuditRecord}
         language={language}
       />
     </div>
