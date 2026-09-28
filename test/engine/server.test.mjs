@@ -32,7 +32,7 @@ describe('Local Engine Server API & WebSocket Contract (Ticket #4)', () => {
       assert.equal(res.status, 200);
       const data = await res.json();
       assert.equal(data.status, 'ok');
-      assert.equal(data.version, '0.1.0');
+      assert.equal(data.version, '0.2.0');
     });
 
     it('GET /api/workspace returns active workspace configuration', async () => {

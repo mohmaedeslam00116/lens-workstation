@@ -1,6 +1,6 @@
 {
   "name": "lens-workstation",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "LENS Workstation — Autonomous Developer Research & Coding Agent Harness",
   "private": true,
   "type": "module",
