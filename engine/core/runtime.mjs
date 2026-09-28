@@ -76,6 +76,7 @@ export class AgentRuntime {
       if (chunk.type === 'thought') {
         this.emit('thought', { text: chunk.text });
       } else if (chunk.type === 'content') {
+        this.emit('chunk', { text: chunk.text });
         onContent(chunk.text);
       } else if (chunk.type === 'tool_call') {
         const tool = this.tools[chunk.toolName];

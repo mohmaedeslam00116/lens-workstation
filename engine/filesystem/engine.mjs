@@ -58,15 +58,16 @@ export class AtomicTransactionEngine {
 
       let afterContent = null;
       let afterSha256 = null;
+      const fileType = req.type || (beforeContent !== null ? 'modify' : 'create');
 
-      if (req.type !== 'delete') {
-        afterContent = req.newContent ?? '';
+      if (fileType !== 'delete') {
+        afterContent = req.newContent ?? req.content ?? '';
         afterSha256 = computeSha256(afterContent);
       }
 
       files.push({
         path: req.path,
-        type: req.type,
+        type: fileType,
         beforeSha256,
         afterSha256,
         beforeContent,
@@ -233,6 +234,16 @@ export class AtomicTransactionEngine {
   }
 
   /**
+   * Alias for rollback method.
+   *
+   * @param {string | import('./types.js').RollbackManifest} manifestOrId
+   * @returns {Promise<import('./types.js').RollbackResult>}
+   */
+  async rollbackTransaction(manifestOrId) {
+    return await this.rollback(manifestOrId);
+  }
+
+  /**
    * List historical transactions stored in .lens/transactions/
    *
    * @returns {Promise<import('./types.js').RollbackManifestHeader[]>}
@@ -263,5 +274,16 @@ export class AtomicTransactionEngine {
     }
 
     return manifests.sort((a, b) => b.timestamp - a.timestamp);
+  }
+
+  /**
+   * Get the most recent active transaction applied to this workspace.
+   *
+   * @returns {Promise<import('./types.js').RollbackManifestHeader | null>}
+   */
+  async getLatestTransaction() {
+    const list = await this.listTransactions();
+    const applied = list.filter((tx) => tx.status === 'applied');
+    return applied.length > 0 ? applied[0] : null;
   }
 }
