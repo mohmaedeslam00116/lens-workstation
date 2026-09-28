@@ -15,6 +15,7 @@ describe('React Workstation UI — Agent Canvas & Auxiliary Pane (Ticket #10)', 
   let PromptInput;
   let AuxiliaryPane;
   let SettingsModal;
+  let AutonomyModeToggle;
 
   before(async () => {
     tempDir = resolve(process.cwd(), '.lens-ui-test-dist');
@@ -29,6 +30,7 @@ describe('React Workstation UI — Agent Canvas & Auxiliary Pane (Ticket #10)', 
         'workstation/src/components/PromptInput.tsx',
         'workstation/src/components/AuxiliaryPane.tsx',
         'workstation/src/components/SettingsModal.tsx',
+        'workstation/src/components/AutonomyModeToggle.tsx',
       ],
       bundle: true,
       format: 'esm',
@@ -59,6 +61,9 @@ describe('React Workstation UI — Agent Canvas & Auxiliary Pane (Ticket #10)', 
 
     const settingsMod = await import(pathToFileURL(join(tempDir, 'SettingsModal.mjs')));
     SettingsModal = settingsMod.SettingsModal;
+
+    const toggleMod = await import(pathToFileURL(join(tempDir, 'AutonomyModeToggle.mjs')));
+    AutonomyModeToggle = toggleMod.AutonomyModeToggle;
   });
 
 
@@ -306,6 +311,98 @@ describe('React Workstation UI — Agent Canvas & Auxiliary Pane (Ticket #10)', 
       })
     );
     assert.equal(hiddenModal, '');
+  });
+
+  it('renders AutonomyModeToggle in Supervised and Autonomous (YOLO) modes across English and Arabic', () => {
+    // English Supervised
+    const htmlSupEn = renderToStaticMarkup(
+      React.createElement(AutonomyModeToggle, {
+        mode: 'supervised',
+        onToggle: () => {},
+        language: 'en',
+      })
+    );
+    assert.ok(htmlSupEn.includes('Supervised'));
+
+    // English Autonomous (YOLO)
+    const htmlAutoEn = renderToStaticMarkup(
+      React.createElement(AutonomyModeToggle, {
+        mode: 'autonomous',
+        onToggle: () => {},
+        language: 'en',
+      })
+    );
+    assert.ok(htmlAutoEn.includes('Autonomous (YOLO)'));
+
+    // Arabic Supervised
+    const htmlSupAr = renderToStaticMarkup(
+      React.createElement(AutonomyModeToggle, {
+        mode: 'supervised',
+        onToggle: () => {},
+        language: 'ar',
+      })
+    );
+    assert.ok(htmlSupAr.includes('بإشراف'));
+
+    // Arabic Autonomous (YOLO)
+    const htmlAutoAr = renderToStaticMarkup(
+      React.createElement(AutonomyModeToggle, {
+        mode: 'autonomous',
+        onToggle: () => {},
+        language: 'ar',
+      })
+    );
+    assert.ok(htmlAutoAr.includes('مستقل (YOLO)'));
+  });
+
+  it('renders instant STOP button in Header and PromptInput when turn is actively processing', () => {
+    // Header processing
+    const headerProcessingHtml = renderToStaticMarkup(
+      React.createElement(Header, {
+        workspace: '/test/workspace',
+        onSelectWorkspace: () => {},
+        capability: 'READ_ONLY_INSPECTION',
+        onToggleCapability: () => {},
+        autonomyMode: 'autonomous',
+        onToggleAutonomyMode: () => {},
+        isProcessing: true,
+        onStopTurn: () => {},
+        language: 'en',
+        onToggleLanguage: () => {},
+        paneOpen: true,
+        onTogglePane: () => {},
+        connected: true,
+      })
+    );
+    assert.ok(headerProcessingHtml.includes('STOP'), 'Header must render STOP button during processing');
+    assert.ok(headerProcessingHtml.includes('Autonomous (YOLO)'));
+
+    // PromptInput processing
+    const promptProcessingHtml = renderToStaticMarkup(
+      React.createElement(PromptInput, {
+        onSend: () => {},
+        language: 'en',
+        capability: 'READ_ONLY_INSPECTION',
+        autonomyMode: 'supervised',
+        onToggleAutonomyMode: () => {},
+        isProcessing: true,
+        onStop: () => {},
+      })
+    );
+    assert.ok(promptProcessingHtml.includes('Stop'), 'PromptInput must render Stop button during processing');
+
+    // PromptInput idle (not processing)
+    const promptIdleHtml = renderToStaticMarkup(
+      React.createElement(PromptInput, {
+        onSend: () => {},
+        language: 'en',
+        capability: 'READ_ONLY_INSPECTION',
+        autonomyMode: 'supervised',
+        onToggleAutonomyMode: () => {},
+        isProcessing: false,
+      })
+    );
+    assert.ok(!promptIdleHtml.includes('Stop'), 'PromptInput must not render Stop button when idle');
   });
 });
 

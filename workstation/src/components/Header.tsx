@@ -1,12 +1,17 @@
 import React from 'react';
-import { FolderOpen, Shield, Globe, PanelRightClose, PanelRightOpen, Settings } from 'lucide-react';
-import type { CapabilityMode, Language } from '../types';
+import { FolderOpen, Shield, Globe, PanelRightClose, PanelRightOpen, Settings, Square } from 'lucide-react';
+import type { CapabilityMode, Language, AutonomyMode } from '../types';
+import { AutonomyModeToggle } from './AutonomyModeToggle';
 
 interface HeaderProps {
   workspace: string;
   onSelectWorkspace: () => void;
   capability: CapabilityMode;
   onToggleCapability: () => void;
+  autonomyMode?: AutonomyMode;
+  onToggleAutonomyMode?: () => void;
+  isProcessing?: boolean;
+  onStopTurn?: () => void;
   language: Language;
   onToggleLanguage: () => void;
   paneOpen: boolean;
@@ -20,6 +25,10 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectWorkspace,
   capability,
   onToggleCapability,
+  autonomyMode = 'supervised',
+  onToggleAutonomyMode,
+  isProcessing = false,
+  onStopTurn,
   language,
   onToggleLanguage,
   paneOpen,
@@ -103,6 +112,28 @@ export const Header: React.FC<HeaderProps> = ({
           <Shield size={12} className={capability === 'WORKSPACE_MUTATION' ? 'text-white' : 'text-gray-400'} />
           <span>{capabilityLabel}</span>
         </button>
+
+        {/* Autonomy Mode Toggle */}
+        {onToggleAutonomyMode && (
+          <AutonomyModeToggle
+            mode={autonomyMode}
+            onToggle={onToggleAutonomyMode}
+            language={language}
+            disabled={isProcessing}
+          />
+        )}
+
+        {/* Instant Stop Button when processing */}
+        {isProcessing && onStopTurn && (
+          <button
+            onClick={onStopTurn}
+            className="flex items-center gap-1.5 rounded px-2.5 py-1 font-mono text-[11px] border border-gray-400 bg-white text-black font-semibold hover:bg-gray-200 transition-colors animate-pulse cursor-pointer"
+            title={isRtl ? 'إيقاف تنفيذ الوكيل فوراً' : 'Stop running agent immediately'}
+          >
+            <Square size={11} className="fill-black" />
+            <span>{isRtl ? 'إيقاف' : 'STOP'}</span>
+          </button>
+        )}
 
         {/* Language Toggle */}
         <button
