@@ -7,6 +7,8 @@ import { AgentRuntime } from '../core/runtime.mjs';
 import { WorkspaceInspectionPort } from '../core/inspection.mjs';
 import { AtomicTransactionEngine } from '../filesystem/engine.mjs';
 import { SanitizedProcessRunner } from '../terminal/runner.mjs';
+import { DPAPICredentialStore, maskApiKey } from '../security/CredentialStore.mjs';
+import { createProvider, KiloGatewayProvider } from '../providers/index.mjs';
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -28,6 +30,11 @@ export class EngineServer {
     this.staticDir = options.staticDir ? resolve(process.cwd(), options.staticDir) : null;
     this.workspacePath = options.initialWorkspace || process.cwd();
     this.capabilityGrant = 'READ_ONLY_INSPECTION';
+    this.credentialStore = new DPAPICredentialStore({
+      workspacePath: this.workspacePath,
+      ...(options.credentialStoreOptions || {}),
+    });
+    this.activeProviderName = options.defaultProvider || 'kilo';
     this.modelProvider = options.modelProvider || null;
 
     this.httpServer = null;
@@ -36,6 +43,7 @@ export class EngineServer {
 
     this.initSubsystems();
   }
+
 
   initSubsystems() {
     this.inspectionPort = new WorkspaceInspectionPort(this.workspacePath);
@@ -520,6 +528,82 @@ export class EngineServer {
       }
       return;
     }
+
+    // 4. Settings: Get credentials (masked)
+    if (pathname === '/api/settings/credentials' && method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        credentials: this.credentialStore.getAllCredentialsMasked(),
+        activeProvider: this.activeProviderName,
+      }));
+      return;
+    }
+
+    // 5. Settings: Save credentials and set active provider
+    if (pathname === '/api/settings/credentials' && method === 'POST') {
+      try {
+        const body = await this.readJsonBody(req);
+        if (!body || !body.provider) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'provider is required' }));
+          return;
+        }
+
+        const { provider, apiKey, model, baseUrl, extraHeaders } = body;
+        const entry = {
+          apiKey: apiKey || '',
+          model: model || '',
+          baseUrl: baseUrl || '',
+          extraHeaders: extraHeaders || {},
+        };
+
+        this.credentialStore.setCredential(provider, entry);
+        this.activeProviderName = provider.toLowerCase();
+
+        // Update active modelProvider in server if key and model present
+        try {
+          this.modelProvider = createProvider({
+            provider: this.activeProviderName,
+            apiKey: entry.apiKey,
+            model: entry.model,
+            baseUrl: entry.baseUrl || undefined,
+            extraHeaders: entry.extraHeaders,
+          });
+        } catch {
+          // ignore partial setup
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          provider: this.activeProviderName,
+          maskedKey: maskApiKey(entry.apiKey),
+        }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message || 'Invalid request body' }));
+      }
+      return;
+    }
+
+    // 6. Fetch models catalog from Kilo Gateway
+    if (pathname === '/api/providers/kilo/models' && method === 'GET') {
+      try {
+        const kiloCred = this.credentialStore.getCredential('kilo') || {};
+        const kiloProvider = new KiloGatewayProvider({
+          apiKey: kiloCred.apiKey || '',
+          baseUrl: kiloCred.baseUrl || undefined,
+        });
+        const models = await kiloProvider.fetchModels();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ models }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message || 'Failed to fetch models' }));
+      }
+      return;
+    }
+
 
     // 4. Static file serving with SPA fallback
     if (this.staticDir && method === 'GET') {

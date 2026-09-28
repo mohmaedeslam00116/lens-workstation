@@ -3,6 +3,7 @@ import { Header } from './components/Header';
 import { AgentCanvas } from './components/AgentCanvas';
 import { PromptInput } from './components/PromptInput';
 import { AuxiliaryPane } from './components/AuxiliaryPane';
+import { SettingsModal } from './components/SettingsModal';
 import { useEngineClient } from './hooks/useEngineClient';
 import type {
   CanvasMessage,
@@ -27,7 +28,9 @@ declare global {
 export function App() {
   const [language, setLanguage] = useState<Language>('en');
   const [paneOpen, setPaneOpen] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('diff');
+
 
   const [messages, setMessages] = useState<CanvasMessage[]>([
     {
@@ -312,6 +315,7 @@ export function App() {
         paneOpen={paneOpen}
         onTogglePane={() => setPaneOpen(!paneOpen)}
         connected={connected}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
 
       {/* Main Dual-Surface Workspace */}
@@ -346,6 +350,14 @@ export function App() {
           onClearTerminal={() => setTerminalLogs([])}
         />
       </div>
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        language={language}
+      />
     </div>
   );
 }
+

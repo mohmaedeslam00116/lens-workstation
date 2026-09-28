@@ -1,5 +1,5 @@
 import React from 'react';
-import { FolderOpen, Shield, Globe, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { FolderOpen, Shield, Globe, PanelRightClose, PanelRightOpen, Settings } from 'lucide-react';
 import type { CapabilityMode, Language } from '../types';
 
 interface HeaderProps {
@@ -12,6 +12,7 @@ interface HeaderProps {
   paneOpen: boolean;
   onTogglePane: () => void;
   connected: boolean;
+  onOpenSettings?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -24,7 +25,9 @@ export const Header: React.FC<HeaderProps> = ({
   paneOpen,
   onTogglePane,
   connected,
+  onOpenSettings,
 }) => {
+
   const isRtl = language === 'ar';
   const defaultWorkspaceLabel = isRtl ? 'اختر مساحة العمل' : 'Select Workspace';
   const folderName = workspace ? workspace.split(/[\\/]/).filter(Boolean).pop() || workspace : defaultWorkspaceLabel;
@@ -111,6 +114,18 @@ export const Header: React.FC<HeaderProps> = ({
           <span>{isRtl ? 'EN' : 'العربية (AR)'}</span>
         </button>
 
+        {/* Model Providers Settings Toggle */}
+        {onOpenSettings && (
+          <button
+            onClick={onOpenSettings}
+            className="flex items-center gap-1.5 rounded border border-[#2a2a2a] bg-[#141414] px-2.5 py-1 text-gray-300 hover:border-gray-600 hover:bg-[#1f1f1f] transition-colors font-mono"
+            title={isRtl ? 'إعدادات النماذج والـ API Keys' : 'Model Providers & API Settings'}
+          >
+            <Settings size={13} className="text-gray-400" />
+            <span>{isRtl ? 'النماذج' : 'Settings'}</span>
+          </button>
+        )}
+
         {/* Auxiliary Pane Toggle */}
         <button
           onClick={onTogglePane}
@@ -123,6 +138,7 @@ export const Header: React.FC<HeaderProps> = ({
         >
           {paneOpen ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
         </button>
+
       </div>
     </header>
   );
