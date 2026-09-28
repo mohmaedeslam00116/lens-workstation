@@ -18,6 +18,7 @@ describe('React Workstation UI — Agent Canvas & Auxiliary Pane (Ticket #10)', 
   let AutonomyModeToggle;
   let SubagentCard;
   let SubagentInspectorDrawer;
+  let EvidenceDrawer;
 
   before(async () => {
     tempDir = resolve(process.cwd(), '.lens-ui-test-dist');
@@ -35,6 +36,7 @@ describe('React Workstation UI — Agent Canvas & Auxiliary Pane (Ticket #10)', 
         'workstation/src/components/AutonomyModeToggle.tsx',
         'workstation/src/components/SubagentCard.tsx',
         'workstation/src/components/SubagentInspectorDrawer.tsx',
+        'workstation/src/components/EvidenceDrawer.tsx',
       ],
       bundle: true,
       format: 'esm',
@@ -74,6 +76,9 @@ describe('React Workstation UI — Agent Canvas & Auxiliary Pane (Ticket #10)', 
 
     const drawerMod = await import(pathToFileURL(join(tempDir, 'SubagentInspectorDrawer.mjs')));
     SubagentInspectorDrawer = drawerMod.SubagentInspectorDrawer;
+
+    const evidenceMod = await import(pathToFileURL(join(tempDir, 'EvidenceDrawer.mjs')));
+    EvidenceDrawer = evidenceMod.EvidenceDrawer;
   });
 
 
@@ -629,6 +634,113 @@ describe('React Workstation UI — Agent Canvas & Auxiliary Pane (Ticket #10)', 
     assert.ok(arDrawerHtml.includes('المهمة المكلف بها:'));
     assert.ok(arDrawerHtml.includes('في انتظار وصول أولى خطوات التنفيذ والتفكير...'));
     assert.ok(arDrawerHtml.includes('0 خطوة'));
+  });
+
+  it('renders EvidenceDrawer with verified citations, contradiction warnings, and bilingual layout across English and Arabic', () => {
+    // 1. Closed state returns null
+    const closedHtml = renderToStaticMarkup(
+      React.createElement(EvidenceDrawer, {
+        isOpen: false,
+        onClose: () => {},
+        excerpts: [],
+        language: 'en',
+      })
+    );
+    assert.equal(closedHtml, '', 'Closed drawer should render null');
+
+    const sampleExcerpts = [
+      {
+        index: 1,
+        bracket: '[1]',
+        chunkId: 'chunk-1',
+        milestoneId: 'milestone-tech',
+        text: 'LENS autonomous research engine utilizes Okapi BM25 and linkedom extraction.',
+        sourceUrl: 'https://github.com/mohmaedeslam00116/lens-workstation',
+        sourceTitle: 'LENS Workstation Core',
+        sourceDomain: 'github.com',
+        relevanceScore: 0.88,
+      },
+      {
+        index: 2,
+        bracket: '[2]',
+        chunkId: 'chunk-2',
+        milestoneId: 'milestone-perf',
+        text: 'Benchmark evaluation demonstrates sub-10ms DOM emulation parsing times.',
+        sourceUrl: 'https://benchmarks.example.org/eval',
+        sourceTitle: 'Performance Benchmarks',
+        sourceDomain: 'benchmarks.example.org',
+        relevanceScore: 0.76,
+      },
+    ];
+
+    const sampleContradictions = [
+      {
+        topicOrMetric: 'Benchmark Discrepancy: LATENCY',
+        claims: [
+          { sourceIndex: 1, assertion: '45ms P99 (official)', domain: 'github.com' },
+          { sourceIndex: 2, assertion: '140ms P99 (third-party)', domain: 'benchmarks.example.org' },
+        ],
+        explanation: 'Source [1] reports 45ms whereas Source [2] measured 140ms under heavy stress.',
+      },
+    ];
+
+    const sampleAudit = {
+      sanitizedReportMarkdown: 'Report text',
+      totalCitationsFound: 2,
+      validCitationsCount: 2,
+      hallucinatedCitationsCount: 1,
+      validIndices: [1, 2],
+      hallucinatedIndices: [99],
+      contradictionsDetected: sampleContradictions,
+    };
+
+    // 2. English Open State
+    const enHtml = renderToStaticMarkup(
+      React.createElement(EvidenceDrawer, {
+        isOpen: true,
+        onClose: () => {},
+        excerpts: sampleExcerpts,
+        contradictions: sampleContradictions,
+        auditRecord: sampleAudit,
+        language: 'en',
+      })
+    );
+
+    assert.ok(enHtml.includes('Verified Evidence Drawer'), 'Must render drawer title');
+    assert.ok(enHtml.includes('Zero-Hallucination'), 'Must render zero-hallucination badge');
+    assert.ok(enHtml.includes('2 grounded excerpts'), 'Must render excerpts subtitle');
+    assert.ok(enHtml.includes('Verified Excerpts'), 'Must render verified excerpts KPI');
+    assert.ok(enHtml.includes('Contradictions'), 'Must render contradictions KPI');
+    assert.ok(enHtml.includes('Hallucinations Stripped'), 'Must render hallucinations stripped KPI');
+    assert.ok(enHtml.includes('Warning: Empirical Contradictions Detected'), 'Must render contradiction warning');
+    assert.ok(enHtml.includes('Benchmark Discrepancy: LATENCY'), 'Must render contradiction topic');
+    assert.ok(enHtml.includes('45ms P99 (official)'), 'Must render claim 1');
+    assert.ok(enHtml.includes('140ms P99 (third-party)'), 'Must render claim 2');
+    assert.ok(enHtml.includes('[1]'), 'Must render excerpt 1 bracket');
+    assert.ok(enHtml.includes('[2]'), 'Must render excerpt 2 bracket');
+    assert.ok(enHtml.includes('github.com'), 'Must render domain 1');
+    assert.ok(enHtml.includes('benchmarks.example.org'), 'Must render domain 2');
+    assert.ok(enHtml.includes('LENS autonomous research engine utilizes Okapi BM25'), 'Must render excerpt text');
+
+    // 3. Arabic Open State
+    const arHtml = renderToStaticMarkup(
+      React.createElement(EvidenceDrawer, {
+        isOpen: true,
+        onClose: () => {},
+        excerpts: sampleExcerpts,
+        contradictions: sampleContradictions,
+        auditRecord: sampleAudit,
+        language: 'ar',
+      })
+    );
+
+    assert.ok(arHtml.includes('dir="rtl"'), 'Must have RTL dir attribute');
+    assert.ok(arHtml.includes('درج الأدلة والشواهد المحققة'), 'Must render Arabic drawer title');
+    assert.ok(arHtml.includes('مدقق ضد الهلوسة'), 'Must render Arabic zero-hallucination badge');
+    assert.ok(arHtml.includes('الشواهد المعتمدة'), 'Must render Arabic KPI 1');
+    assert.ok(arHtml.includes('تناقضات مرصودة'), 'Must render Arabic KPI 2');
+    assert.ok(arHtml.includes('استشهادات مقطوعة'), 'Must render Arabic KPI 3');
+    assert.ok(arHtml.includes('تنبيه: تم رصد تناقضات بين المصادر'), 'Must render Arabic contradiction alert');
   });
 });
 
