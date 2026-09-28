@@ -5,6 +5,18 @@ All notable changes to **LENS Workstation** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Multi-Step Autonomous ReAct Loop (`AgentRuntime.mjs`)** (#25): Multi-turn reasoning loop cycling through model thoughts, tool calls, and tool results up to configurable `maxTurns` (default 30) with clean termination.
+- **Dual Autonomy Governance (YOLO vs Supervised)** (#25): Configurable execution modes allowing autonomous execution of mutating actions in YOLO mode or interactive approval checkpoints in Supervised mode.
+- **Instant Stop / Cancel Preemption** (#25): WebSocket `stop_turn` / `cancel_turn` and REST `POST /api/turn/cancel` handlers with reactive CancellationToken aborting turns immediately.
+- **Sliding Tool Window Compactor (`ContextCompactor.mjs`)** (#25): Retains system prompt and initial task, preserves 3 most recent tool results in full, compresses older tool outputs to 1-line summaries, and triggers checkpoint summary at 80% model token limit.
+- **Autonomy Mode UI Controls (`AutonomyModeToggle.tsx`)** (#25): In-UI toggle switch and instant animated STOP button integrated into `Header` and `PromptInput` with full English/Arabic localization.
+- **Hardware-Backed Credential Storage (`DPAPICredentialStore.mjs`)** (#24): Windows DPAPI encryption via `safeStorage` at rest with masked API key exposure and `.env` fallback.
+- **Provider Settings Modal (`SettingsModal.tsx`)** (#24): Dialog for switching between providers (Kilo, OpenCode, Cline, Gemini, Claude, OpenAI, DeepSeek, Ollama) and entering API keys.
+- **Streaming Tool Accumulator & Gateway Expansion** (#23): Stateful SSE chunk assembler for OpenAI and Kilo Gateway, dedicated Kilo Gateway provider with catalog discovery, OpenCode bridge, and Cline XML parser.
+
 ## [0.1.0] - 2026-09-28
 
 ### Added

@@ -13,6 +13,7 @@ import type {
   TerminalLine,
   EvidenceItem,
   ToolExecution,
+  AutonomyMode,
 } from './types';
 
 // Electron bridge global interface
@@ -30,6 +31,8 @@ export function App() {
   const [paneOpen, setPaneOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('diff');
+  const [autonomyMode, setAutonomyMode] = useState<AutonomyMode>('supervised');
+  const [isProcessing, setIsProcessing] = useState(false);
 
 
   const [messages, setMessages] = useState<CanvasMessage[]>([
@@ -132,6 +135,11 @@ export function App() {
           };
         })
       );
+    } else if (type === 'done' || type === 'turn_cancelled' || type === 'error') {
+      setIsProcessing(false);
+    } else if (type === 'autonomy_mode_changed') {
+      const mode = event.mode as AutonomyMode;
+      if (mode) setAutonomyMode(mode);
     }
   }, []);
 
@@ -158,7 +166,20 @@ export function App() {
     }
   };
 
+  const handleToggleAutonomyMode = () => {
+    const nextMode: AutonomyMode = autonomyMode === 'supervised' ? 'autonomous' : 'supervised';
+    setAutonomyMode(nextMode);
+    sendMessage({ type: 'set_autonomy_mode', mode: nextMode });
+  };
+
+  const handleStopTurn = () => {
+    setIsProcessing(false);
+    sendMessage({ type: 'stop_turn' });
+  };
+
   const handleSendPrompt = (promptText: string) => {
+    setIsProcessing(true);
+
     const userMsg: CanvasMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
@@ -198,9 +219,11 @@ export function App() {
       type: 'user_turn',
       prompt: promptText,
       workspace: activeWorkspace,
+      autonomyMode,
     });
 
     if (!sent) {
+      setIsProcessing(false);
       // Offline fallback demo behavior
       setTimeout(() => {
         setMessages((prev) => {
@@ -310,6 +333,10 @@ export function App() {
               : 'READ_ONLY_INSPECTION'
           )
         }
+        autonomyMode={autonomyMode}
+        onToggleAutonomyMode={handleToggleAutonomyMode}
+        isProcessing={isProcessing}
+        onStopTurn={handleStopTurn}
         language={language}
         onToggleLanguage={() => setLanguage((l) => (l === 'en' ? 'ar' : 'en'))}
         paneOpen={paneOpen}
@@ -332,6 +359,10 @@ export function App() {
             onSend={handleSendPrompt}
             language={language}
             capability={capability}
+            autonomyMode={autonomyMode}
+            onToggleAutonomyMode={handleToggleAutonomyMode}
+            isProcessing={isProcessing}
+            onStop={handleStopTurn}
           />
         </main>
 

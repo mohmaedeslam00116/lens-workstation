@@ -78,6 +78,11 @@ A secure local credential vault utilizing Electron `safeStorage` (backed by Wind
 ### SlidingToolWindowCompactor
 A context management subsystem within the ReAct loop that keeps the initial task and the 3 most recent tool results in full detail, while compressing older tool outputs into 1-line semantic summaries to prevent context exhaustion.
 
+### DualAutonomyMode
+A toggleable execution governance mode for the ReAct reasoning loop:
+- **`Supervised`**: Automatically executes read-only inspection tools, but pauses and requests explicit developer approval for mutating actions (file edits and shell commands).
+- **`Autonomous (YOLO)`**: Executes both read-only and mutating actions automatically up to the maximum turns budget (`maxTurns: 30`) with an instant Stop/Cancel button for developer preemption.
+
 ### MultiTierExtractionLadder
 A fault-tolerant web scraping pipeline executing a 3-tier fallback sequence: Tier 1 fast HTTP fetch with `linkedom` DOM emulation; Tier 2 markdown reader proxy (`r.jina.ai`) upon 403/Cloudflare blocks; Tier 3 graceful bypass.
 

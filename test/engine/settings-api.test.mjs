@@ -101,4 +101,36 @@ describe('Settings API & Provider Endpoints (Ticket #24)', () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  it('GET /api/settings/autonomy returns current autonomy mode', async () => {
+    const res = await fetch(`${baseUrl}/api/settings/autonomy`);
+    assert.equal(res.status, 200);
+    const json = await res.json();
+    assert.equal(json.mode, 'supervised');
+  });
+
+  it('POST /api/settings/autonomy updates autonomy mode', async () => {
+    const res = await fetch(`${baseUrl}/api/settings/autonomy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'autonomous' }),
+    });
+    assert.equal(res.status, 200);
+    const json = await res.json();
+    assert.equal(json.success, true);
+    assert.equal(json.mode, 'autonomous');
+
+    // Verify GET reflects update
+    const getRes = await fetch(`${baseUrl}/api/settings/autonomy`);
+    const getJson = await getRes.json();
+    assert.equal(getJson.mode, 'autonomous');
+  });
+
+  it('POST /api/turn/cancel successfully cancels turn', async () => {
+    const res = await fetch(`${baseUrl}/api/turn/cancel`, { method: 'POST' });
+    assert.equal(res.status, 200);
+    const json = await res.json();
+    assert.equal(json.success, true);
+    assert.equal(json.status, 'cancelled');
+  });
 });

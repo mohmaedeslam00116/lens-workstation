@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowUp, AtSign, Slash } from 'lucide-react';
-import type { Language, CapabilityMode } from '../types';
+import { ArrowUp, AtSign, Slash, Square } from 'lucide-react';
+import type { Language, CapabilityMode, AutonomyMode } from '../types';
+import { AutonomyModeToggle } from './AutonomyModeToggle';
 
 interface PromptInputProps {
   onSend: (text: string) => void;
@@ -8,6 +9,10 @@ interface PromptInputProps {
   language: Language;
   capability: CapabilityMode;
   workspaceFiles?: string[];
+  autonomyMode?: AutonomyMode;
+  onToggleAutonomyMode?: () => void;
+  isProcessing?: boolean;
+  onStop?: () => void;
 }
 
 const getCommands = (isRtl: boolean) => [
@@ -60,6 +65,10 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   language,
   capability,
   workspaceFiles,
+  autonomyMode = 'supervised',
+  onToggleAutonomyMode,
+  isProcessing = false,
+  onStop,
 }) => {
   const isRtl = language === 'ar';
   const [text, setText] = useState('');
@@ -222,20 +231,39 @@ export const PromptInput: React.FC<PromptInputProps> = ({
             </button>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            {onToggleAutonomyMode && (
+              <AutonomyModeToggle
+                mode={autonomyMode}
+                onToggle={onToggleAutonomyMode}
+                language={language}
+                disabled={isProcessing}
+              />
+            )}
             <span className="font-mono text-[10px] text-gray-400">
               {capability === 'READ_ONLY_INSPECTION'
                 ? (isRtl ? 'وضع القراءة فقط' : 'Read-Only Mode')
                 : (isRtl ? 'صلاحية التعديل مفعلة' : 'Mutation Granted')}
             </span>
-            <button
-              onClick={handleSubmit}
-              disabled={!text.trim() || disabled}
-              className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-black hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
-              title={isRtl ? 'إرسال الأمر (Enter)' : 'Send prompt (Enter)'}
-            >
-              <ArrowUp size={15} strokeWidth={2.5} />
-            </button>
+            {isProcessing && onStop ? (
+              <button
+                onClick={onStop}
+                className="flex h-7 px-2.5 items-center justify-center gap-1.5 rounded-lg bg-white text-black hover:bg-gray-200 transition-colors font-mono text-[11px] font-semibold cursor-pointer animate-pulse"
+                title={isRtl ? 'إيقاف تنفيذ الوكيل فوراً' : 'Stop execution'}
+              >
+                <Square size={11} className="fill-black" />
+                <span>{isRtl ? 'إيقاف' : 'Stop'}</span>
+              </button>
+            ) : (
+              <button
+                onClick={handleSubmit}
+                disabled={!text.trim() || disabled}
+                className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-black hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
+                title={isRtl ? 'إرسال الأمر (Enter)' : 'Send prompt (Enter)'}
+              >
+                <ArrowUp size={15} strokeWidth={2.5} />
+              </button>
+            )}
           </div>
         </div>
       </div>

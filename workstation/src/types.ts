@@ -2,6 +2,8 @@ export type Language = 'en' | 'ar';
 
 export type CapabilityMode = 'READ_ONLY_INSPECTION' | 'WORKSPACE_MUTATION';
 
+export type AutonomyMode = 'supervised' | 'autonomous';
+
 export type TabType = 'diff' | 'terminal' | 'evidence';
 
 export interface ThoughtBlock {

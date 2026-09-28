@@ -9,6 +9,7 @@ import { AtomicTransactionEngine } from '../filesystem/engine.mjs';
 import { SanitizedProcessRunner } from '../terminal/runner.mjs';
 import { DPAPICredentialStore, maskApiKey } from '../security/CredentialStore.mjs';
 import { createProvider, KiloGatewayProvider } from '../providers/index.mjs';
+import { CancellationSource } from '../core/ports.mjs';
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -36,6 +37,8 @@ export class EngineServer {
     });
     this.activeProviderName = options.defaultProvider || 'kilo';
     this.modelProvider = options.modelProvider || null;
+    this.autonomyMode = options.autonomyMode || 'supervised';
+    this.currentCancellation = null;
 
     this.httpServer = null;
     this.wss = null;
@@ -152,12 +155,36 @@ export class EngineServer {
       telemetryPort,
       modelProvider: this.modelProvider || this.createDefaultModelProvider(),
       tools,
+      autonomyMode: this.autonomyMode,
     });
   }
 
   createDefaultModelProvider() {
     return {
-      generateStream: async function* (prompt) {
+      generateStream: async function* (input) {
+        const prompt = typeof input === 'string'
+          ? input
+          : (Array.isArray(input) ? input.filter((m) => m.role === 'user').pop()?.content || '' : String(input || ''));
+
+        const hasToolResult = Array.isArray(input) && input.some((m) => m.role === 'tool');
+
+        if (hasToolResult) {
+          if (prompt.startsWith('/test')) {
+            yield { type: 'thought', text: 'Tests executed. Verification complete.' };
+            yield { type: 'content', text: 'Test execution finished.' };
+          } else if (prompt.startsWith('/plan')) {
+            yield { type: 'thought', text: 'Directory structure analyzed. Plan finalized.' };
+            yield { type: 'content', text: 'Implementation plan ready. Workspace structure analyzed.' };
+          } else if (prompt.startsWith('/modify') || prompt.startsWith('modify:')) {
+            yield { type: 'thought', text: 'Diff reviewed and processed.' };
+            yield { type: 'content', text: 'Modification diff proposed for review.' };
+          } else {
+            yield { type: 'thought', text: 'Operation complete.' };
+            yield { type: 'content', text: `Acknowledged instruction: "${prompt}". Workspace scan complete.` };
+          }
+          return;
+        }
+
         if (prompt.startsWith('/test')) {
           yield { type: 'thought', text: 'Analyzing project tests and sanitized runner configuration...' };
           yield {
@@ -169,7 +196,6 @@ export class EngineServer {
               args: ['-e', "console.log('LENS Test Runner OK')"],
             },
           };
-          yield { type: 'content', text: 'Test execution finished.' };
         } else if (prompt.startsWith('/plan')) {
           yield { type: 'thought', text: 'Inspecting repository file hierarchy and dependencies...' };
           yield {
@@ -178,7 +204,6 @@ export class EngineServer {
             toolName: 'list_dir',
             args: { path: '.' },
           };
-          yield { type: 'content', text: 'Implementation plan ready. Workspace structure analyzed.' };
         } else if (prompt.startsWith('/modify') || prompt.startsWith('modify:')) {
           yield { type: 'thought', text: 'Preparing atomic change proposal for file...' };
           const targetPath = prompt.split(/\s+/)[1] || 'sample.txt';
@@ -188,7 +213,6 @@ export class EngineServer {
             toolName: 'propose_diff',
             args: { path: targetPath, content: '// Updated by LENS autonomous agent\nconst status = "ok";\n' },
           };
-          yield { type: 'content', text: 'Modification diff proposed for review.' };
         } else {
           yield { type: 'thought', text: `Processing instruction: "${prompt}"...` };
           yield {
@@ -197,7 +221,6 @@ export class EngineServer {
             toolName: 'list_dir',
             args: { path: '.' },
           };
-          yield { type: 'content', text: `Acknowledged instruction: "${prompt}". Workspace scan complete.` };
         }
       },
     };
@@ -296,11 +319,33 @@ export class EngineServer {
       }
 
       // Normal turn execution
+      if (this.currentCancellation) {
+        this.currentCancellation.cancel();
+      }
+      this.currentCancellation = new CancellationSource();
+      const autonomyMode = msg.autonomyMode || this.autonomyMode;
+
       try {
-        await this.agentRuntime.runTurn(prompt);
+        await this.agentRuntime.runTurn(prompt, {
+          cancellationToken: this.currentCancellation.token,
+          autonomyMode,
+        });
       } catch (err) {
         this.broadcast({ type: 'error', error: err.message });
+      } finally {
+        this.currentCancellation = null;
       }
+    } else if (msg.type === 'cancel_turn' || msg.type === 'stop_turn') {
+      if (this.currentCancellation) {
+        this.currentCancellation.cancel();
+        this.currentCancellation = null;
+      }
+      this.broadcast({ type: 'turn_cancelled' });
+    } else if (msg.type === 'set_autonomy_mode') {
+      const mode = msg.mode === 'autonomous' || msg.mode === 'yolo' ? 'autonomous' : 'supervised';
+      this.autonomyMode = mode;
+      this.agentRuntime.setAutonomyMode(mode);
+      this.broadcast({ type: 'autonomy_mode_changed', mode: this.autonomyMode });
     } else if (msg.type === 'tool_approval') {
       const { toolId, approved, reason } = msg;
       this.agentRuntime.respondToApproval(toolId, {
@@ -601,6 +646,42 @@ export class EngineServer {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message || 'Failed to fetch models' }));
       }
+      return;
+    }
+
+    // 7. Get autonomy mode
+    if (pathname === '/api/settings/autonomy' && method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ mode: this.autonomyMode }));
+      return;
+    }
+
+    // 8. Set autonomy mode
+    if (pathname === '/api/settings/autonomy' && method === 'POST') {
+      try {
+        const body = await this.readJsonBody(req);
+        const mode = body?.mode === 'autonomous' || body?.mode === 'yolo' ? 'autonomous' : 'supervised';
+        this.autonomyMode = mode;
+        this.agentRuntime.setAutonomyMode(mode);
+        this.broadcast({ type: 'autonomy_mode_changed', mode: this.autonomyMode });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, mode: this.autonomyMode }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message || 'Invalid request body' }));
+      }
+      return;
+    }
+
+    // 9. Cancel active turn
+    if (pathname === '/api/turn/cancel' && method === 'POST') {
+      if (this.currentCancellation) {
+        this.currentCancellation.cancel();
+        this.currentCancellation = null;
+      }
+      this.broadcast({ type: 'turn_cancelled' });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, status: 'cancelled' }));
       return;
     }
 
