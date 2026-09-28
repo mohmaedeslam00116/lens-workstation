@@ -3,7 +3,7 @@
  * Normalizes Gemini, Anthropic Claude, OpenAI, DeepSeek, and Ollama into unified TurnEvents.
  */
 
-export function parseOpenAIStreamChunk(chunk) {
+export function parseOpenAIStreamChunk(chunk, accumulator = null) {
   const events = [];
   if (!chunk || !chunk.choices || !chunk.choices[0]) return events;
 
@@ -27,25 +27,29 @@ export function parseOpenAIStreamChunk(chunk) {
 
   // 3. Tool Calls
   if (delta.tool_calls && Array.isArray(delta.tool_calls)) {
-    for (const tc of delta.tool_calls) {
-      if (tc.function) {
-        let args = {};
-        if (typeof tc.function.arguments === 'string') {
-          try {
-            args = JSON.parse(tc.function.arguments);
-          } catch {
-            args = { raw: tc.function.arguments };
+    if (accumulator) {
+      accumulator.processChunkDelta(delta);
+    } else {
+      for (const tc of delta.tool_calls) {
+        if (tc.function) {
+          let args = {};
+          if (typeof tc.function.arguments === 'string') {
+            try {
+              args = JSON.parse(tc.function.arguments);
+            } catch {
+              args = { raw: tc.function.arguments };
+            }
+          } else if (typeof tc.function.arguments === 'object') {
+            args = tc.function.arguments;
           }
-        } else if (typeof tc.function.arguments === 'object') {
-          args = tc.function.arguments;
-        }
 
-        events.push({
-          type: 'tool_call',
-          callId: tc.id || tc.function.name,
-          toolName: tc.function.name,
-          args,
-        });
+          events.push({
+            type: 'tool_call',
+            callId: tc.id || tc.function.name,
+            toolName: tc.function.name,
+            args,
+          });
+        }
       }
     }
   }
@@ -108,51 +112,30 @@ export function parseGeminiChunk(chunk) {
   return events;
 }
 
-export class BaseProvider {
-  constructor(config = {}) {
-    this.name = config.provider;
-    this.model = config.model;
-    this.apiKey = config.apiKey || '';
-    this.baseUrl = config.baseUrl || '';
-  }
+import {
+  BaseProvider,
+  GeminiProvider,
+  AnthropicProvider,
+  OpenAICompatibleProvider,
+} from './BaseProvider.mjs';
+import { KiloGatewayProvider } from './KiloGatewayProvider.mjs';
+import { OpenCodeBridgeProvider } from './OpenCodeBridgeProvider.mjs';
+import { ClineBridgeProvider } from './ClineBridgeProvider.mjs';
+import { parseClineXmlTools } from './ClinePromptParser.mjs';
+import { StreamingToolAccumulator } from './StreamingToolAccumulator.mjs';
 
-  async *generateStream() {
-    throw new Error('generateStream must be implemented by provider adapter');
-  }
+export {
+  BaseProvider,
+  GeminiProvider,
+  AnthropicProvider,
+  OpenAICompatibleProvider,
+  KiloGatewayProvider,
+  OpenCodeBridgeProvider,
+  ClineBridgeProvider,
+  parseClineXmlTools,
+  StreamingToolAccumulator,
+};
 
-  async *continueStreamWithToolResult() {
-    throw new Error('continueStreamWithToolResult must be implemented by provider adapter');
-  }
-}
-
-export class GeminiProvider extends BaseProvider {
-  constructor(config = {}) {
-    super(config);
-    this.baseUrl = config.baseUrl || 'https://generativelanguage.googleapis.com/v1beta';
-  }
-}
-
-export class AnthropicProvider extends BaseProvider {
-  constructor(config = {}) {
-    super(config);
-    this.baseUrl = config.baseUrl || 'https://api.anthropic.com/v1';
-  }
-}
-
-export class OpenAICompatibleProvider extends BaseProvider {
-  constructor(config = {}) {
-    super(config);
-    if (!this.baseUrl) {
-      if (this.name === 'deepseek') {
-        this.baseUrl = 'https://api.deepseek.com';
-      } else if (this.name === 'ollama') {
-        this.baseUrl = 'http://127.0.0.1:11434/v1';
-      } else {
-        this.baseUrl = 'https://api.openai.com/v1';
-      }
-    }
-  }
-}
 
 export function createProvider(config = {}) {
   if (!config.provider) {
@@ -171,7 +154,16 @@ export function createProvider(config = {}) {
     case 'deepseek':
     case 'ollama':
       return new OpenAICompatibleProvider(config);
+    case 'kilo':
+      return new KiloGatewayProvider(config);
+    case 'opencode':
+      return new OpenCodeBridgeProvider(config);
+    case 'cline':
+      return new ClineBridgeProvider(config);
     default:
       throw new Error(`Unsupported provider: ${config.provider}`);
   }
 }
+
+
+
