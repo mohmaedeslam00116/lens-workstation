@@ -34,9 +34,10 @@ function writeStore(data: Record<string, unknown>): void {
 }
 
 async function startEngine(): Promise<void> {
+  const staticDir = resolve(__dirname, '../workstation');
   engineServer = new EngineServer({
     port: ENGINE_PORT,
-    staticDir: 'dist/workstation',
+    staticDir,
     initialWorkspace: process.cwd(),
   });
   await engineServer.start();

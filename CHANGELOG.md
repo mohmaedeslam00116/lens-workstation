@@ -24,8 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Implemented Sanitized Terminal execution engine (`engine/terminal/runner.mjs`) with strict environment variable allowlist stripping credentials and secrets, total output byte truncation safeguards, and cross-platform process-tree termination (`engine/terminal/tree-killer.mjs`).
 - Implemented Atomic Filesystem & Rollback Engine (`engine/filesystem/engine.mjs`) featuring pre-write SHA-256 integrity validation, all-or-nothing multi-file atomic transactions, persistent `.lens/transactions/tx-<id>.json` rollback manifests, and 1-click byte-for-byte state reversion.
 - Implemented React 18 Workstation UI (`workstation/src/`) featuring central Agent Canvas, collapsible thinking blocks, tool execution cards with human-in-the-loop approval checkpoints, PromptInput dock with @mentions and /slash commands, and collapsible Auxiliary Pane with Monaco Diff Editor (`@monaco-editor/react`), live terminal output, evidence tabs, and bilingual English LTR / Arabic RTL layout.
-
-
-
-
+- Wired complete end-to-end subsystem integration (`engine/server/index.mjs`) connecting Agent Core runtime, scoped WorkspaceInspectionPort, SanitizedProcessRunner, AtomicTransactionEngine, and WebSocket client communication.
+- Implemented `WorkspaceInspectionPort` (`engine/core/inspection.mjs`) enforcing strict workspace root scoping, path traversal defenses, text preview slicing, and exclusion of build artifacts.
+- Created end-to-end system integration test suite (`test/workstation/e2e-integration.test.mjs`) verifying WebSocket connection handshakes, autonomous inspection turns (`/plan`), human-in-the-loop tool checkpoints with live streaming terminal logs (`/test`), diff preview proposing with atomic transaction application, and 1-click byte-for-byte filesystem rollback (`/rollback`).
+- Configured electron-builder desktop packaging pipeline and verified production unpacked Windows build generation (`dist-installer/win-unpacked/LENS Workstation.exe`).
 

@@ -12,6 +12,8 @@
     "build:ui": "vite build",
     "build:electron": "esbuild workstation/electron/main.ts workstation/electron/preload.ts --bundle --platform=node --outdir=dist/electron --out-extension:.js=.cjs --external:electron",
     "build": "npm run build:engine && npm run build:ui && npm run build:electron",
+    "package": "npm run build && electron-builder --dir",
+    "pack:win": "npm run build && electron-builder --win",
     "dev:ui": "vite",
     "dev": "vite",
     "start": "electron ."
@@ -32,11 +34,30 @@
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.18",
     "electron": "^32.3.3",
+    "electron-builder": "^26.15.3",
     "esbuild": "^0.25.12",
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.3.3",
     "vite": "^6.2.0"
+  },
+  "build": {
+    "appId": "com.lens.workstation",
+    "productName": "LENS Workstation",
+    "directories": {
+      "output": "dist-installer"
+    },
+    "files": [
+      "dist/**/*",
+      "engine/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "dir"
+      ]
+    },
+    "asar": false
   },
   "author": "LENS Team",
   "license": "Apache-2.0"
