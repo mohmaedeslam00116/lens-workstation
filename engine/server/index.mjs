@@ -10,6 +10,8 @@ import { SanitizedProcessRunner } from '../terminal/runner.mjs';
 import { DPAPICredentialStore, maskApiKey } from '../security/CredentialStore.mjs';
 import { createProvider, KiloGatewayProvider } from '../providers/index.mjs';
 import { CancellationSource } from '../core/ports.mjs';
+import { EventBus } from '../core/EventBus.mjs';
+import { SubagentRuntime } from '../core/SubagentRuntime.mjs';
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -143,6 +145,21 @@ export class EngineServer {
         },
       },
     };
+
+    this.eventBus = new EventBus();
+    this.eventBus.on('event', (e) => {
+      this.broadcast(e);
+    });
+
+    this.subagentRuntime = new SubagentRuntime({
+      workspacePath: this.workspacePath,
+      eventBus: this.eventBus,
+      modelProvider: this.modelProvider || this.createDefaultModelProvider(),
+      inspectionPort: this.inspectionPort,
+      tools,
+    });
+
+    tools.invoke_subagent = this.subagentRuntime.createInvokeTool();
 
     const telemetryPort = {
       emit: (event) => {
@@ -351,6 +368,29 @@ export class EngineServer {
       this.agentRuntime.respondToApproval(toolId, {
         approved: !!approved,
         reason: reason || (approved ? undefined : 'User denied permission'),
+      });
+    } else if (msg.type === 'invoke_subagent') {
+      try {
+        const handle = await this.subagentRuntime.spawnSubagent({
+          role: msg.role,
+          type: msg.subagentType || msg.typeName || msg.archetype || 'general',
+          prompt: msg.prompt,
+        });
+        this.broadcast({
+          type: 'subagent_invoked',
+          conversationId: handle.conversationId,
+          role: handle.role,
+          subagentType: handle.type,
+        });
+      } catch (err) {
+        this.broadcast({ type: 'error', error: `Failed to invoke subagent: ${err.message}` });
+      }
+    } else if (msg.type === 'kill_subagent') {
+      const success = this.subagentRuntime.killSubagent(msg.id);
+      this.broadcast({
+        type: 'subagent_killed',
+        id: msg.id,
+        success,
       });
     } else if (msg.type === 'diff_decision') {
       const { path: filePath, diffId, id, decision } = msg;
@@ -683,6 +723,46 @@ export class EngineServer {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, status: 'cancelled' }));
       return;
+    }
+
+    // 10. List all subagents
+    if (pathname === '/api/subagents' && method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ subagents: this.subagentRuntime.getSubagents() }));
+      return;
+    }
+
+    // 11. Subagent single, transcript, or kill routes
+    const subagentMatch = pathname.match(/^\/api\/subagents\/([^/]+)(?:\/(transcript|kill))?$/);
+    if (subagentMatch) {
+      const subagentId = subagentMatch[1];
+      const subAction = subagentMatch[2];
+
+      if (!subAction && method === 'GET') {
+        const subagent = this.subagentRuntime.getSubagent(subagentId);
+        if (subagent) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(subagent));
+        } else {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Subagent not found' }));
+        }
+        return;
+      }
+
+      if (subAction === 'transcript' && method === 'GET') {
+        const transcript = await this.subagentRuntime.getTranscript(subagentId);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ transcript }));
+        return;
+      }
+
+      if (subAction === 'kill' && method === 'POST') {
+        const killed = this.subagentRuntime.killSubagent(subagentId);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: killed }));
+        return;
+      }
     }
 
 

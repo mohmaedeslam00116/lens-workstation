@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **SubagentRuntime & EventBus Isolation Engine (`SubagentRuntime.mjs`, `EventBus.mjs`)** (#26): Spawn and coordinate isolated child agent contexts (`research`, `code_reviewer`, `general`) with scoped toolsets and permission isolation (read-only for research/reviewers, preventing mutation leaks). Structured streaming session persistence to `transcript.jsonl` with tool call tracking, native `invoke_subagent` main agent tool, REST endpoints (`GET /api/subagents`, `GET /api/subagents/:id`, `GET /api/subagents/:id/transcript`, `POST /api/subagents/:id/kill`), and WebSocket real-time lifecycle event broadcasting.
 - **Multi-Step Autonomous ReAct Loop (`AgentRuntime.mjs`)** (#25): Multi-turn reasoning loop cycling through model thoughts, tool calls, and tool results up to configurable `maxTurns` (default 30) with clean termination.
 - **Dual Autonomy Governance (YOLO vs Supervised)** (#25): Configurable execution modes allowing autonomous execution of mutating actions in YOLO mode or interactive approval checkpoints in Supervised mode.
 - **Instant Stop / Cancel Preemption** (#25): WebSocket `stop_turn` / `cancel_turn` and REST `POST /api/turn/cancel` handlers with reactive CancellationToken aborting turns immediately.

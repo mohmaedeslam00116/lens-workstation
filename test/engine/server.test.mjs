@@ -118,6 +118,68 @@ describe('Local Engine Server API & WebSocket Contract (Ticket #4)', () => {
 
       assert.equal(thoughtMsg.type, 'thought');
       assert.equal(thoughtMsg.payload.text, 'Analyzing codebase structure...');
+      ws.close();
+    });
+
+    it('handles WebSocket invoke_subagent and broadcasts subagent events', async () => {
+      const ws = new WebSocket(wsUrl);
+      const messages = [];
+
+      ws.on('message', (raw) => {
+        messages.push(JSON.parse(raw.toString()));
+      });
+
+      await new Promise((resolve) => ws.on('open', resolve));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      ws.send(JSON.stringify({
+        type: 'invoke_subagent',
+        role: 'Async Auditor',
+        subagentType: 'code_reviewer',
+        prompt: 'Check code quality',
+      }));
+
+      const startMsg = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Subagent broadcast timeout')), 3000);
+        const interval = setInterval(() => {
+          const found = messages.find((m) => m.type === 'subagent:started');
+          if (found) {
+            clearTimeout(timeout);
+            clearInterval(interval);
+            resolve(found);
+          }
+        }, 10);
+      });
+
+      assert.equal(startMsg.type, 'subagent:started');
+      assert.equal(startMsg.role, 'Async Auditor');
+      assert.ok(startMsg.id);
+
+      // Verify GET /api/subagents REST endpoint
+      const res = await fetch(`${baseUrl}/api/subagents`);
+      assert.equal(res.status, 200);
+      const json = await res.json();
+      assert.ok(Array.isArray(json.subagents));
+      assert.ok(json.subagents.some((s) => s.id === startMsg.id));
+
+      // Verify GET /api/subagents/:id endpoint
+      const singleRes = await fetch(`${baseUrl}/api/subagents/${startMsg.id}`);
+      assert.equal(singleRes.status, 200);
+      const singleJson = await singleRes.json();
+      assert.equal(singleJson.id, startMsg.id);
+      assert.equal(singleJson.role, 'Async Auditor');
+
+      // Verify GET /api/subagents/:id/transcript endpoint
+      const transRes = await fetch(`${baseUrl}/api/subagents/${startMsg.id}/transcript`);
+      assert.equal(transRes.status, 200);
+      const transJson = await transRes.json();
+      assert.ok(Array.isArray(transJson.transcript));
+
+      // Verify 404 for unknown subagent
+      const notFoundRes = await fetch(`${baseUrl}/api/subagents/unknown-id`);
+      assert.equal(notFoundRes.status, 404);
+
+      ws.close();
     });
   });
 });
