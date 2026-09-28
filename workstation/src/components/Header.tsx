@@ -62,7 +62,7 @@ export const Header: React.FC<HeaderProps> = ({
             LENS WORKSTATION
           </span>
           <span className="rounded bg-[#222222] px-1.5 py-0.5 font-mono text-[10px] text-gray-400">
-            v0.1.0
+            v0.2.0
           </span>
         </div>
 

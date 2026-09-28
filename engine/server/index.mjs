@@ -580,7 +580,7 @@ export class EngineServer {
     // 1. Health check
     if (pathname === '/health' && method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ status: 'ok', version: '0.1.0' }));
+      res.end(JSON.stringify({ status: 'ok', version: '0.2.0' }));
       return;
     }
 

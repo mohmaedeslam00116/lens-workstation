@@ -53,7 +53,7 @@ export function App() {
       id: 'welcome-1',
       role: 'assistant',
       content:
-        'Welcome to LENS Workstation (v0.1.0). I am your autonomous developer research and coding harness. You can prompt me to explore this codebase, plan refactors, or execute atomic multi-file changes.',
+        'Welcome to LENS Workstation (v0.2.0). I am your autonomous developer research and coding harness. You can prompt me to explore this codebase, plan refactors, or execute atomic multi-file changes.',
       timestamp: Date.now(),
     },
   ]);
