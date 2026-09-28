@@ -16,6 +16,8 @@ describe('React Workstation UI — Agent Canvas & Auxiliary Pane (Ticket #10)', 
   let AuxiliaryPane;
   let SettingsModal;
   let AutonomyModeToggle;
+  let SubagentCard;
+  let SubagentInspectorDrawer;
 
   before(async () => {
     tempDir = resolve(process.cwd(), '.lens-ui-test-dist');
@@ -31,6 +33,8 @@ describe('React Workstation UI — Agent Canvas & Auxiliary Pane (Ticket #10)', 
         'workstation/src/components/AuxiliaryPane.tsx',
         'workstation/src/components/SettingsModal.tsx',
         'workstation/src/components/AutonomyModeToggle.tsx',
+        'workstation/src/components/SubagentCard.tsx',
+        'workstation/src/components/SubagentInspectorDrawer.tsx',
       ],
       bundle: true,
       format: 'esm',
@@ -64,6 +68,12 @@ describe('React Workstation UI — Agent Canvas & Auxiliary Pane (Ticket #10)', 
 
     const toggleMod = await import(pathToFileURL(join(tempDir, 'AutonomyModeToggle.mjs')));
     AutonomyModeToggle = toggleMod.AutonomyModeToggle;
+
+    const cardMod = await import(pathToFileURL(join(tempDir, 'SubagentCard.mjs')));
+    SubagentCard = cardMod.SubagentCard;
+
+    const drawerMod = await import(pathToFileURL(join(tempDir, 'SubagentInspectorDrawer.mjs')));
+    SubagentInspectorDrawer = drawerMod.SubagentInspectorDrawer;
   });
 
 
@@ -404,5 +414,222 @@ describe('React Workstation UI — Agent Canvas & Auxiliary Pane (Ticket #10)', 
     );
     assert.ok(!promptIdleHtml.includes('Stop'), 'PromptInput must not render Stop button when idle');
   });
+
+  it('renders SubagentCard with role badge, animated status, live stateDetail, deep link, and elapsed timer across English and Arabic', () => {
+    // 1. English Running Research Subagent
+    const runningSubagent = {
+      id: 'sub-research-101',
+      role: 'Autonomous Researcher',
+      type: 'research',
+      prompt: 'Investigate AST transformation libraries',
+      status: 'running',
+      stateDetail: 'Fetching https://api.github.com/repos/babel/babel...',
+      startTime: Date.now() - 4500,
+    };
+
+    const enRunningHtml = renderToStaticMarkup(
+      React.createElement(SubagentCard, {
+        subagent: runningSubagent,
+        language: 'en',
+        onInspect: () => {},
+        onKill: () => {},
+      })
+    );
+
+    assert.ok(enRunningHtml.includes('Autonomous Researcher'), 'Must render subagent role');
+    assert.ok(enRunningHtml.includes('RESEARCH'), 'Must render RESEARCH archetype badge');
+    assert.ok(enRunningHtml.includes('RUNNING'), 'Must render RUNNING status badge');
+    assert.ok(enRunningHtml.includes('Fetching https://api.github.com/repos/babel/babel...'), 'Must render live stateDetail');
+    assert.ok(enRunningHtml.includes('lens://conversation/sub-research-101'), 'Must render deep-link URI');
+    assert.ok(enRunningHtml.includes('Inspect'), 'Must render inspect button');
+    assert.ok(enRunningHtml.includes('Stop'), 'Must render stop button for running subagent');
+
+    // 2. Arabic Completed Code Reviewer Subagent
+    const completedSubagent = {
+      id: 'sub-reviewer-202',
+      role: 'مراجع الكود الأمني',
+      type: 'code_reviewer',
+      prompt: 'فحص ثغرات الحقن في محرك الأوامر',
+      status: 'completed',
+      stateDetail: 'تم اكتمال الفحص وتوثيق التوصيات',
+      startTime: Date.now() - 15000,
+      endTime: Date.now(),
+      durationMs: 15000,
+    };
+
+    const arCompletedHtml = renderToStaticMarkup(
+      React.createElement(SubagentCard, {
+        subagent: completedSubagent,
+        language: 'ar',
+        onInspect: () => {},
+      })
+    );
+
+    assert.ok(arCompletedHtml.includes('مراجع الكود الأمني'));
+    assert.ok(arCompletedHtml.includes('مراجعة كود'));
+    assert.ok(arCompletedHtml.includes('مكتمل'));
+    assert.ok(arCompletedHtml.includes('15.0s'));
+    assert.ok(arCompletedHtml.includes('فحص المجريات'));
+    assert.ok(arCompletedHtml.includes('lens://conversation/sub-reviewer-202'));
+
+    // 3. Failed & Killed states
+    const failedHtml = renderToStaticMarkup(
+      React.createElement(SubagentCard, {
+        subagent: {
+          id: 'sub-303',
+          role: 'General Worker',
+          type: 'general',
+          status: 'failed',
+          startTime: Date.now() - 2000,
+          durationMs: 2000,
+          error: 'Network timeout',
+        },
+        language: 'en',
+      })
+    );
+    assert.ok(failedHtml.includes('FAILED'));
+    assert.ok(failedHtml.includes('GENERAL'));
+
+    const killedHtml = renderToStaticMarkup(
+      React.createElement(SubagentCard, {
+        subagent: {
+          id: 'sub-404',
+          role: 'General Worker',
+          type: 'general',
+          status: 'killed',
+          startTime: Date.now() - 3000,
+          durationMs: 3000,
+        },
+        language: 'en',
+      })
+    );
+    assert.ok(killedHtml.includes('STOPPED'));
+  });
+
+  it('renders SubagentCard inside AgentCanvas when invoke_subagent tool is executed', () => {
+    const messages = [
+      {
+        id: 'msg-sub-1',
+        role: 'assistant',
+        content: 'I have delegated the research task to a background subagent.',
+        timestamp: Date.now(),
+        tools: [
+          {
+            id: 'call-sub-1',
+            name: 'invoke_subagent',
+            type: 'read_only',
+            args: {
+              role: 'Deep Docs Explorer',
+              type: 'research',
+              prompt: 'Search docs for WebSocket reconnection strategies',
+            },
+            status: 'running',
+          },
+        ],
+      },
+    ];
+
+    const canvasHtml = renderToStaticMarkup(
+      React.createElement(AgentCanvas, {
+        messages,
+        language: 'en',
+        onApproveTool: () => {},
+        onRejectTool: () => {},
+      })
+    );
+
+    assert.ok(canvasHtml.includes('Deep Docs Explorer'), 'AgentCanvas must render subagent role');
+    assert.ok(canvasHtml.includes('RESEARCH'), 'AgentCanvas must render archetype badge');
+    assert.ok(canvasHtml.includes('lens://conversation/sub-call-sub-1'), 'AgentCanvas must render deep link');
+  });
+
+  it('renders SubagentInspectorDrawer with live transcript stream, thought blocks, and tool executions', () => {
+    // 1. Hidden when isOpen is false or subagent is null
+    const hiddenDrawer = renderToStaticMarkup(
+      React.createElement(SubagentInspectorDrawer, {
+        isOpen: false,
+        subagent: null,
+        transcript: [],
+        onClose: () => {},
+        language: 'en',
+      })
+    );
+    assert.equal(hiddenDrawer, '');
+
+    // 2. Open drawer with active subagent and rich transcript entries
+    const subagent = {
+      id: 'subagent-inspect-555',
+      role: 'AST Deep Analyzer',
+      type: 'code_reviewer',
+      prompt: 'Review all TypeScript exports and AST traversal hooks',
+      status: 'running',
+      stateDetail: 'Analyzing syntax trees...',
+      startTime: Date.now() - 8200,
+    };
+
+    const transcript = [
+      {
+        stepIndex: 1,
+        type: 'thought',
+        thought: 'First, I will inspect package.json to identify all dependencies.',
+      },
+      {
+        stepIndex: 2,
+        type: 'tool_call',
+        toolName: 'read_file',
+        args: { path: 'package.json' },
+        stateDetail: 'read_file: package.json',
+      },
+      {
+        stepIndex: 3,
+        type: 'tool_result',
+        toolName: 'read_file',
+        result: '{ "name": "lens-workstation", "version": "0.1.0" }',
+      },
+      {
+        stepIndex: 4,
+        type: 'assistant',
+        content: 'Verified that lens-workstation is at v0.1.0.',
+      },
+    ];
+
+    const drawerHtml = renderToStaticMarkup(
+      React.createElement(SubagentInspectorDrawer, {
+        isOpen: true,
+        subagent,
+        transcript,
+        onClose: () => {},
+        onKill: () => {},
+        language: 'en',
+      })
+    );
+
+    assert.ok(drawerHtml.includes('AST Deep Analyzer'), 'Must render drawer title');
+    assert.ok(drawerHtml.includes('CODE_REVIEWER'), 'Must render archetype badge');
+    assert.ok(drawerHtml.includes('lens://conversation/subagent-inspect-555'), 'Must render deep-link');
+    assert.ok(drawerHtml.includes('Review all TypeScript exports'), 'Must render assigned task');
+    assert.ok(drawerHtml.includes('Thinking Step'), 'Must render thought block');
+    assert.ok(drawerHtml.includes('First, I will inspect package.json'), 'Must render thought content');
+    assert.ok(drawerHtml.includes('TOOL CALL'), 'Must render tool call banner');
+    assert.ok(drawerHtml.includes('read_file'), 'Must render tool name');
+    assert.ok(drawerHtml.includes('SUCCESS'), 'Must render tool result success badge');
+    assert.ok(drawerHtml.includes('Verified that lens-workstation is at v0.1.0.'), 'Must render assistant content');
+    assert.ok(drawerHtml.includes('4 steps'), 'Must render step counter');
+
+    // 3. Arabic Drawer
+    const arDrawerHtml = renderToStaticMarkup(
+      React.createElement(SubagentInspectorDrawer, {
+        isOpen: true,
+        subagent,
+        transcript: [],
+        onClose: () => {},
+        language: 'ar',
+      })
+    );
+    assert.ok(arDrawerHtml.includes('المهمة المكلف بها:'));
+    assert.ok(arDrawerHtml.includes('في انتظار وصول أولى خطوات التنفيذ والتفكير...'));
+    assert.ok(arDrawerHtml.includes('0 خطوة'));
+  });
 });
+
 
