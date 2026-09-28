@@ -14,6 +14,7 @@
     "build": "npm run build:engine && npm run build:ui && npm run build:electron",
     "package": "npm run build && electron-builder --dir",
     "pack:win": "npm run build && electron-builder --win",
+    "dist": "npm run build && electron-builder --win nsis",
     "dev:ui": "vite",
     "dev": "vite",
     "start": "electron ."
@@ -54,8 +55,15 @@
     ],
     "win": {
       "target": [
+        "nsis",
         "dir"
       ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     },
     "asar": false
   },
